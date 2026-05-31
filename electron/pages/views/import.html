@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <div id="app">
+        <div v-if="toast.show" :class="['toast', 'toast-' + toast.type]">
+            <i :class="toast.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
+            {{ toast.message }}
+        </div>
+
+        <div class="page-header">
+            <h1 class="page-title"><i class="bi bi-cloud-upload-fill"></i> 数据导入</h1>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-upload"></i> 上传数据文件</div>
+                <button class="btn btn-secondary" @click="downloadTemplate"><i class="bi bi-download"></i> 下载导入模板</button>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" :class="{ dragover: isDragover }"
+                    @click="$refs.fileInput.click()"
+                    @dragover.prevent="isDragover = true"
+                    @dragleave="isDragover = false"
+                    @drop.prevent="handleDrop">
+                    <div v-if="uploading" class="loading">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 12px;">正在上传...</p>
+                    </div>
+                    <template v-else>
+                        <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                        <div class="upload-text">点击或拖拽文件到此处上传</div>
+                        <div class="upload-hint">支持 .xlsx, .xls 格式的 Excel 文件</div>
+                    </template>
+                </div>
+                <input type="file" ref="fileInput" class="file-input" accept=".xlsx,.xls" @change="handleFile">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-clock-history"></i> 导入历史</div>
+                <button class="btn btn-secondary" @click="loadHistory"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="card-body">
+                <div v-if="history.length === 0" class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h3>暂无导入记录</h3>
+                    <p>上传数据文件后将在此显示导入历史</p>
+                </div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>文件名</th><th>导入时间</th><th>记录数</th><th>状态</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in history" :key="item.id">
+                                <td>{{ item.original_filename || item.filename }}</td>
+                                <td>{{ formatTime(item.created_at) }}</td>
+                                <td>{{ item.success_records }}</td>
+                                <td><span :class="['badge', item.status === 'success' ? 'badge-success' : 'badge-warning']">{{ item.status === 'success' ? '成功' : item.status }}</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const history = ref([]);
+                const isDragover = ref(false);
+                const uploading = ref(false);
+                const toast = ref({ show: false, type: 'success', message: '' });
+
+                const showToast = (type, message) => {
+                    toast.value = { show: true, type, message };
+                    setTimeout(() => toast.value.show = false, 3000);
+                };
+
+                const formatTime = (isoString) => {
+                    if (!isoString) return '-';
+                    const date = new Date(isoString);
+                    return date.toLocaleString('zh-CN', { 
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                };
+
+                const loadHistory = async () => {
+                    try {
+                        const res = await apiGet('/api/data/import-history');
+                        if (res && res.ok) history.value = await res.json();
+                    } catch (e) { console.error(e); }
+                };
+
+                const uploadFile = async (file) => {
+                    uploading.value = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await apiPostForm('/api/data/upload', formData);
+                        if (res) {
+                            const data = await res.json();
+                            if (res.ok) {
+                                showToast('success', `导入成功！共导入 ${data.imported_count || 0} 条记录`);
+                                loadHistory();
+                            } else {
+                                showToast('error', data.message || '导入失败');
+                            }
+                        }
+                    } catch (e) {
+                        showToast('error', '上传失败');
+                    } finally {
+                        uploading.value = false;
+                    }
+                };
+
+                const handleFile = (e) => {
+                    const file = e.target.files[0];
+                    if (file) uploadFile(file);
+                    e.target.value = '';
+                };
+
+                const handleDrop = (e) => {
+                    isDragover.value = false;
+                    const file = e.dataTransfer.files[0];
+                    if (file) uploadFile(file);
+                };
+
+                const downloadTemplate = () => {
+                    window.open(`${API_BASE}/api/data/download-template?token=${getToken()}`, '_blank');
+                };
+
+                onMounted(loadHistory);
+                return { history, isDragover, uploading, toast, formatTime, loadHistory, handleFile, handleDrop, downloadTemplate };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

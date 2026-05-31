@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>工作量统计</title>
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <script src="../../libs/echarts/echarts.min.js"></script>
+    <style>
+        body { background: #f0f2f5; }
+        .page-container { display: flex; height: 100vh; overflow: hidden; }
+        
+        /* 左侧控制面板 */
+        .control-panel {
+            width: 280px;
+            min-width: 280px;
+            background: white;
+            border-right: 1px solid #e8e8e8;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8e8e8;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-section {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+        .chart-type-list { display: flex; flex-direction: column; gap: 6px; }
+        .chart-type-item {
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        .chart-type-item:hover { background: #f1f5f9; }
+        .chart-type-item.active { background: #e0f2fe; color: #0369a1; font-weight: 500; }
+        .chart-type-item i { font-size: 18px; width: 24px; text-align: center; }
+        
+        /* 查询条件 */
+        .filter-group { margin-bottom: 14px; }
+        .filter-label { font-size: 13px; color: #64748b; margin-bottom: 6px; display: block; }
+        .filter-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        .filter-select:focus { outline: none; border-color: #3b82f6; }
+        .filter-row { display: flex; gap: 10px; }
+        .filter-row .filter-group { flex: 1; }
+        
+        .btn-generate {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 16px;
+        }
+        .btn-generate:hover { opacity: 0.9; }
+        .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        /* 右侧图表区域 */
+        .chart-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chart-header {
+            padding: 16px 24px;
+            background: white;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chart-title { font-size: 18px; font-weight: 600; color: #1e293b; }
+        .chart-actions { display: flex; gap: 10px; }
+        .btn-action {
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #475569;
+        }
+        .btn-action:hover { background: #f8fafc; border-color: #94a3b8; }
+        .btn-action.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .btn-action.primary:hover { background: #2563eb; }
+        
+        .chart-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 24px;
+            min-height: 500px;
+        }
+        #mainChart { width: 100%; height: 480px; }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #94a3b8;
+        }
+        .empty-state i { font-size: 64px; margin-bottom: 16px; }
+        .empty-state p { font-size: 15px; }
+        
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+        }
+        .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 图表信息 */
+        .chart-info {
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .chart-info strong { color: #334155; }
+    </style>
+</head>
+<body>
+    <div id="app" class="page-container">
+        <!-- 左侧控制面板 -->
+        <div class="control-panel">
+            <div class="panel-header">
+                <i class="bi bi-bar-chart-line-fill"></i>
+                工作量统计
+            </div>
+            
+            <!-- 图表类型选择 -->
+            <div class="panel-section">
+                <div class="section-title">图表类型</div>
+                <div class="chart-type-list">
+                    <div class="chart-type-item" :class="{ active: chartType === 'trend' }" @click="chartType = 'trend'">
+                        <i class="bi bi-graph-up"></i> 样品与收入趋势
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'quarterCompare' }" @click="chartType = 'quarterCompare'">
+                        <i class="bi bi-bar-chart-fill"></i> 样品测定量季度对比
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'incomeQuarterCompare' }" @click="chartType = 'incomeQuarterCompare'">
+                        <i class="bi bi-cash-stack"></i> 收入季度对比
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'projectIncome' }" @click="chartType = 'projectIncome'">
+                        <i class="bi bi-cash-stack"></i> 项目收入排行
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'projectSample' }" @click="chartType = 'projectSample'">
+                        <i class="bi bi-pie-chart-fill"></i> 样品测定量占比
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'topDrugs' }" @click="chartType = 'topDrugs'">
+                        <i class="bi bi-trophy-fill"></i> 前十药品监测量
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'criticalCompare' }" @click="chartType = 'criticalCompare'">
+                        <i class="bi bi-exclamation-triangle-fill"></i> 危急值对比
+                    </div>
+                    <div class="chart-type-item" :class="{ active: chartType === 'criticalDist' }" @click="chartType = 'criticalDist'">
+                        <i class="bi bi-diagram-3-fill"></i> 危急值分布
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 查询条件 -->
+            <div class="panel-section">
+                <div class="section-title">查询条件</div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">年度</label>
+                    <select v-model="query.year" class="filter-select">
+                        <option v-for="y in availableYears" :key="y" :value="y">{{ y }}年</option>
+                    </select>
+                </div>
+                
+                <!-- 月份区间 (趋势图) -->
+                <template v-if="['trend'].includes(chartType)">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label class="filter-label">起始月份</label>
+                            <select v-model="query.monthStart" class="filter-select">
+                                <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">结束月份</label>
+                            <select v-model="query.monthEnd" class="filter-select">
+                                <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                            </select>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- 项目数据筛选 (项目收入/样品测定量) -->
+                <template v-if="['projectIncome', 'projectSample'].includes(chartType)">
+                    <div class="filter-group">
+                        <label class="filter-label">查询方式</label>
+                        <select v-model="query.projectMode" class="filter-select">
+                            <option value="quarter">按季度</option>
+                            <option value="month">按月份区间</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" v-if="query.projectMode === 'quarter'">
+                        <label class="filter-label">选择季度</label>
+                        <select v-model="query.projectQuarter" class="filter-select">
+                            <option :value="1">第一季度 (1-3月)</option>
+                            <option :value="2">第二季度 (4-6月)</option>
+                            <option :value="3">第三季度 (7-9月)</option>
+                            <option :value="4">第四季度 (10-12月)</option>
+                        </select>
+                    </div>
+                    <template v-if="query.projectMode === 'month'">
+                        <div class="filter-row">
+                            <div class="filter-group">
+                                <label class="filter-label">起始月份</label>
+                                <select v-model="query.monthStart" class="filter-select">
+                                    <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="filter-label">结束月份</label>
+                                <select v-model="query.monthEnd" class="filter-select">
+                                    <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                                </select>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                
+                <!-- 季度选择 (季度对比图) -->
+                <template v-if="['quarterCompare', 'incomeQuarterCompare'].includes(chartType)">
+                    <div class="filter-group">
+                        <label class="filter-label">选择季度</label>
+                        <select v-model="query.quarter" class="filter-select">
+                            <option :value="1">第一季度 (1-3月)</option>
+                            <option :value="2">第二季度 (4-6月)</option>
+                            <option :value="3">第三季度 (7-9月)</option>
+                            <option :value="4">第四季度 (10-12月)</option>
+                        </select>
+                    </div>
+                </template>
+                
+                <!-- 单月选择 (前十药品) -->
+                <template v-if="['topDrugs'].includes(chartType)">
+                    <div class="filter-group">
+                        <label class="filter-label">选择月份</label>
+                        <select v-model="query.month" class="filter-select">
+                            <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                        </select>
+                    </div>
+                </template>
+                
+                <!-- 季度选择 (危急值) -->
+                <template v-if="['criticalCompare', 'criticalDist'].includes(chartType)">
+                    <div class="filter-group">
+                        <label class="filter-label">查询方式</label>
+                        <select v-model="query.mode" class="filter-select">
+                            <option value="quarter">按季度</option>
+                            <option value="month">按月份</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" v-if="query.mode === 'quarter'">
+                        <label class="filter-label">选择季度</label>
+                        <select v-model="query.quarter" class="filter-select">
+                            <option :value="1">第一季度</option>
+                            <option :value="2">第二季度</option>
+                            <option :value="3">第三季度</option>
+                            <option :value="4">第四季度</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" v-if="query.mode === 'month'">
+                        <label class="filter-label">选择月份</label>
+                        <select v-model="query.month" class="filter-select">
+                            <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                        </select>
+                    </div>
+                </template>
+                
+                <button class="btn-generate" @click="generateChart" :disabled="loading">
+                    <i class="bi bi-lightning-fill"></i>
+                    {{ loading ? '生成中...' : '生成图表' }}
+                </button>
+            </div>
+        </div>
+        
+        <!-- 右侧图表区域 -->
+        <div class="chart-area">
+            <div class="chart-header">
+                <div class="chart-title">{{ chartTitles[chartType] }}</div>
+                <div class="chart-actions" v-if="hasData">
+                    <button class="btn-action" @click="exportChart">
+                        <i class="bi bi-download"></i> 导出图片
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chart-content">
+                <div class="chart-container">
+                    <!-- 加载状态 -->
+                    <div v-if="loading" class="loading-state">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 16px; color: #64748b;">加载中...</p>
+                    </div>
+                    
+                    <!-- 空状态 -->
+                    <div v-else-if="!hasData" class="empty-state">
+                        <i class="bi bi-bar-chart"></i>
+                        <p>请选择图表类型和查询条件，点击"生成图表"</p>
+                    </div>
+                    
+                    <!-- 图表 -->
+                    <template v-else>
+                        <div class="chart-info">
+                            <strong>统计期间：</strong>{{ chartPeriodText }}
+                        </div>
+                        <div id="mainChart"></div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const currentYear = new Date().getFullYear();
+                const currentMonth = new Date().getMonth() + 1;
+                const availableYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+                
+                const chartType = ref('trend');
+                const query = ref({
+                    year: currentYear,
+                    monthStart: 1,
+                    monthEnd: currentMonth,
+                    month: currentMonth,
+                    quarter: Math.ceil(currentMonth / 3),
+                    mode: 'quarter',
+                    projectMode: 'quarter',
+                    projectQuarter: Math.ceil(currentMonth / 3)
+                });
+                
+                const loading = ref(false);
+                const hasData = ref(false);
+                const workloadData = ref({ sample: [], income: [], critical: [] });
+                let chartInstance = null;
+                
+                // 切换图表类型时清空右侧内容
+                watch(chartType, () => {
+                    hasData.value = false;
+                    if (chartInstance) {
+                        chartInstance.dispose();
+                        chartInstance = null;
+                    }
+                });
+                
+                const chartTitles = {
+                    trend: '样品测定量与收入月度趋势图',
+                    quarterCompare: '样品测定量季度对比',
+                    incomeQuarterCompare: '收入季度对比',
+                    projectIncome: '各项目收入排行',
+                    projectSample: '各项目样品测定量占比',
+                    topDrugs: '前十药品监测量对比',
+                    criticalCompare: '危急值对比',
+                    criticalDist: '危急值项目分布'
+                };
+                
+                const chartPeriodText = computed(() => {
+                    const y = query.value.year;
+                    if (['trend'].includes(chartType.value)) {
+                        if (query.value.monthStart === query.value.monthEnd) {
+                            return `${y}年${query.value.monthStart}月`;
+                        }
+                        return `${y}年${query.value.monthStart}月 - ${query.value.monthEnd}月`;
+                    }
+                    if (['projectIncome', 'projectSample'].includes(chartType.value)) {
+                        if (query.value.projectMode === 'quarter') {
+                            return `${y}年第${query.value.projectQuarter}季度`;
+                        }
+                        if (query.value.monthStart === query.value.monthEnd) {
+                            return `${y}年${query.value.monthStart}月`;
+                        }
+                        return `${y}年${query.value.monthStart}月 - ${query.value.monthEnd}月`;
+                    }
+                    if (['topDrugs'].includes(chartType.value)) {
+                        return `${y}年${query.value.month}月`;
+                    }
+                    if (['quarterCompare', 'incomeQuarterCompare'].includes(chartType.value)) {
+                        return `${y}年第${query.value.quarter}季度（对比上季度及去年同期）`;
+                    }
+                    if (['criticalCompare', 'criticalDist'].includes(chartType.value)) {
+                        if (query.value.mode === 'quarter') {
+                            return `${y}年第${query.value.quarter}季度`;
+                        }
+                        return `${y}年${query.value.month}月`;
+                    }
+                    return '';
+                });
+                
+                // 加载工作量数据
+                const loadWorkloadData = async () => {
+                    try {
+                        // 加载当年和去年的数据
+                        const [currentRes, lastYearRes] = await Promise.all([
+                            apiGet(`/api/workload/data?year=${query.value.year}`),
+                            apiGet(`/api/workload/data?year=${query.value.year - 1}`)
+                        ]);
+                        
+                        if (currentRes && currentRes.ok) {
+                            const data = await currentRes.json();
+                            workloadData.value = data.data || { sample: [], income: [], critical: [] };
+                        }
+                        
+                        if (lastYearRes && lastYearRes.ok) {
+                            const lastData = await lastYearRes.json();
+                            workloadData.value.lastYearSample = lastData.data?.sample || [];
+                            workloadData.value.lastYearIncome = lastData.data?.income || [];
+                            workloadData.value.lastYearCritical = lastData.data?.critical || [];
+                        }
+                    } catch (e) {
+                        console.error('加载数据失败:', e);
+                    }
+                };
+                
+                // 生成图表
+                const generateChart = async () => {
+                    loading.value = true;
+                    hasData.value = false;
+                    
+                    await loadWorkloadData();
+                    
+                    // 先设置hasData为true让DOM渲染出来
+                    hasData.value = true;
+                    loading.value = false;
+                    
+                    // 等待DOM更新
+                    await nextTick();
+                    
+                    const dom = document.getElementById('mainChart');
+                    if (!dom) {
+                        console.error('Chart DOM not found');
+                        return;
+                    }
+                    
+                    if (chartInstance) chartInstance.dispose();
+                    chartInstance = echarts.init(dom);
+                    
+                    let option = null;
+                    
+                    switch (chartType.value) {
+                        case 'trend':
+                            option = buildTrendChart();
+                            break;
+                        case 'quarterCompare':
+                            option = buildQuarterCompareChart();
+                            break;
+                        case 'incomeQuarterCompare':
+                            option = buildIncomeQuarterCompareChart();
+                            break;
+                        case 'projectIncome':
+                            option = buildProjectIncomeChart();
+                            break;
+                        case 'projectSample':
+                            option = buildProjectSampleChart();
+                            break;
+                        case 'topDrugs':
+                            option = buildTopDrugsChart();
+                            break;
+                        case 'criticalCompare':
+                            option = buildCriticalCompareChart();
+                            break;
+                        case 'criticalDist':
+                            option = buildCriticalDistChart();
+                            break;
+                    }
+                    
+                    if (option) {
+                        chartInstance.setOption(option);
+                    }
+                };
+                
+                // 计算指定月份区间的总和
+                const sumMonths = (item, start, end) => {
+                    let total = 0;
+                    for (let m = start; m <= end; m++) {
+                        total += (item[`month_${m}`] || 0);
+                    }
+                    return total;
+                };
+                
+                // 月度趋势图
+                const buildTrendChart = () => {
+                    const { monthStart, monthEnd } = query.value;
+                    const months = [];
+                    const sampleData = [];
+                    const incomeData = [];
+                    
+                    for (let m = monthStart; m <= monthEnd; m++) {
+                        months.push(m + '月');
+                        
+                        let sampleSum = 0;
+                        let incomeSum = 0;
+                        
+                        workloadData.value.sample.forEach(item => {
+                            sampleSum += (item[`month_${m}`] || 0);
+                        });
+                        workloadData.value.income.forEach(item => {
+                            incomeSum += (item[`month_${m}`] || 0);
+                        });
+                        
+                        sampleData.push(sampleSum);
+                        incomeData.push(Math.round(incomeSum));
+                    }
+                    
+                    return {
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                        legend: { data: ['样品测定量', '收入'], bottom: 10 },
+                        grid: { left: 80, right: 80, top: 60, bottom: 80 },
+                        xAxis: { type: 'category', data: months },
+                        yAxis: [
+                            { type: 'value', name: '样品数', position: 'left' },
+                            { type: 'value', name: '收入', position: 'right' }
+                        ],
+                        series: [
+                            {
+                                name: '样品测定量',
+                                type: 'bar',
+                                data: sampleData,
+                                itemStyle: { color: '#3b82f6' },
+                                label: {
+                                    show: true,
+                                    position: 'insideTop',
+                                    color: '#fff',
+                                    fontWeight: 'bold',
+                                    fontSize: 12
+                                }
+                            },
+                            {
+                                name: '收入',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: incomeData,
+                                itemStyle: { color: '#f59e0b' },
+                                lineStyle: { width: 3 },
+                                symbol: 'circle',
+                                symbolSize: 10,
+                                label: {
+                                    show: true,
+                                    position: 'top',
+                                    distance: 15,
+                                    formatter: params => formatMoney(params.value),
+                                    color: '#d97706',
+                                    fontWeight: 'bold',
+                                    fontSize: 12,
+                                    backgroundColor: 'rgba(255,255,255,0.95)',
+                                    padding: [3, 8],
+                                    borderRadius: 4,
+                                    shadowColor: 'rgba(0,0,0,0.1)',
+                                    shadowBlur: 3
+                                }
+                            }
+                        ]
+                    };
+                };
+                
+                // 样品测定量季度对比图
+                const buildQuarterCompareChart = () => {
+                    const { year, quarter } = query.value;
+                    
+                    // 当前季度月份范围
+                    const qStart = (quarter - 1) * 3 + 1;
+                    const qEnd = quarter * 3;
+                    
+                    // 计算当前季度
+                    let currentSample = 0;
+                    workloadData.value.sample.forEach(item => {
+                        currentSample += sumMonths(item, qStart, qEnd);
+                    });
+                    
+                    // 计算上个季度
+                    const prevQ = quarter === 1 ? 4 : quarter - 1;
+                    const prevQStart = (prevQ - 1) * 3 + 1;
+                    const prevQEnd = prevQ * 3;
+                    const prevYear = quarter === 1 ? year - 1 : year;
+                    
+                    let prevSample = 0;
+                    const prevSampleData = prevYear === year ? workloadData.value.sample : (workloadData.value.lastYearSample || []);
+                    prevSampleData.forEach(item => {
+                        prevSample += sumMonths(item, prevQStart, prevQEnd);
+                    });
+                    
+                    // 计算去年同期
+                    let lastYearSample = 0;
+                    (workloadData.value.lastYearSample || []).forEach(item => {
+                        lastYearSample += sumMonths(item, qStart, qEnd);
+                    });
+                    
+                    const currentLabel = `${year}年Q${quarter}`;
+                    const prevLabel = `${prevYear}年Q${prevQ}`;
+                    const lastYearLabel = `${year-1}年Q${quarter}`;
+                    
+                    return {
+                        tooltip: { trigger: 'axis' },
+                        legend: { data: [currentLabel, prevLabel, lastYearLabel], bottom: 10 },
+                        grid: { left: 80, right: 40, top: 60, bottom: 80 },
+                        xAxis: { type: 'category', data: ['样品测定量'] },
+                        yAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: currentLabel, type: 'bar', barWidth: 60, data: [currentSample], itemStyle: { color: '#3b82f6' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } },
+                            { name: prevLabel, type: 'bar', barWidth: 60, data: [prevSample], itemStyle: { color: '#22c55e' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } },
+                            { name: lastYearLabel, type: 'bar', barWidth: 60, data: [lastYearSample], itemStyle: { color: '#f59e0b' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } }
+                        ]
+                    };
+                };
+                
+                // 收入季度对比图
+                const buildIncomeQuarterCompareChart = () => {
+                    const { year, quarter } = query.value;
+                    
+                    // 当前季度月份范围
+                    const qStart = (quarter - 1) * 3 + 1;
+                    const qEnd = quarter * 3;
+                    
+                    // 计算当前季度
+                    let currentIncome = 0;
+                    workloadData.value.income.forEach(item => {
+                        currentIncome += sumMonths(item, qStart, qEnd);
+                    });
+                    
+                    // 计算上个季度
+                    const prevQ = quarter === 1 ? 4 : quarter - 1;
+                    const prevQStart = (prevQ - 1) * 3 + 1;
+                    const prevQEnd = prevQ * 3;
+                    const prevYear = quarter === 1 ? year - 1 : year;
+                    
+                    let prevIncome = 0;
+                    const prevIncomeData = prevYear === year ? workloadData.value.income : (workloadData.value.lastYearIncome || []);
+                    prevIncomeData.forEach(item => {
+                        prevIncome += sumMonths(item, prevQStart, prevQEnd);
+                    });
+                    
+                    // 计算去年同期
+                    let lastYearIncome = 0;
+                    (workloadData.value.lastYearIncome || []).forEach(item => {
+                        lastYearIncome += sumMonths(item, qStart, qEnd);
+                    });
+                    
+                    const currentLabel = `${year}年Q${quarter}`;
+                    const prevLabel = `${prevYear}年Q${prevQ}`;
+                    const lastYearLabel = `${year-1}年Q${quarter}`;
+                    
+                    return {
+                        tooltip: { trigger: 'axis' },
+                        legend: { data: [currentLabel, prevLabel, lastYearLabel], bottom: 10 },
+                        grid: { left: 80, right: 40, top: 60, bottom: 80 },
+                        xAxis: { type: 'category', data: ['收入'] },
+                        yAxis: { type: 'value', name: '金额' },
+                        series: [
+                            { name: currentLabel, type: 'bar', barWidth: 60, data: [Math.round(currentIncome)], itemStyle: { color: '#3b82f6' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } },
+                            { name: prevLabel, type: 'bar', barWidth: 60, data: [Math.round(prevIncome)], itemStyle: { color: '#22c55e' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } },
+                            { name: lastYearLabel, type: 'bar', barWidth: 60, data: [Math.round(lastYearIncome)], itemStyle: { color: '#f59e0b' }, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold' } }
+                        ]
+                    };
+                };
+                
+                // 项目收入排行
+                const buildProjectIncomeChart = () => {
+                    let mStart, mEnd;
+                    if (query.value.projectMode === 'quarter') {
+                        mStart = (query.value.projectQuarter - 1) * 3 + 1;
+                        mEnd = query.value.projectQuarter * 3;
+                    } else {
+                        mStart = query.value.monthStart;
+                        mEnd = query.value.monthEnd;
+                    }
+                    
+                    const projectMap = {};
+                    
+                    workloadData.value.income.forEach(item => {
+                        const name = item.project_name;
+                        if (!projectMap[name]) projectMap[name] = 0;
+                        projectMap[name] += sumMonths(item, mStart, mEnd);
+                    });
+                    
+                    const sorted = Object.entries(projectMap)
+                        .map(([name, value]) => ({ name, value: Math.round(value) }))
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 15);
+                    
+                    return {
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: 150, right: 80, top: 40, bottom: 40 },
+                        xAxis: { type: 'value', name: '收入' },
+                        yAxis: { type: 'category', data: sorted.map(d => d.name).reverse(), axisLabel: { width: 120, overflow: 'truncate' } },
+                        series: [{
+                            type: 'bar',
+                            data: sorted.map(d => d.value).reverse(),
+                            itemStyle: { color: '#3b82f6' },
+                            label: { show: true, position: 'right', formatter: params => formatMoney(params.value) }
+                        }]
+                    };
+                };
+                
+                // 项目样品测定量占比饼图
+                const buildProjectSampleChart = () => {
+                    let mStart, mEnd;
+                    if (query.value.projectMode === 'quarter') {
+                        mStart = (query.value.projectQuarter - 1) * 3 + 1;
+                        mEnd = query.value.projectQuarter * 3;
+                    } else {
+                        mStart = query.value.monthStart;
+                        mEnd = query.value.monthEnd;
+                    }
+                    
+                    const projectMap = {};
+                    
+                    workloadData.value.sample.forEach(item => {
+                        const name = item.project_name;
+                        if (!projectMap[name]) projectMap[name] = 0;
+                        projectMap[name] += sumMonths(item, mStart, mEnd);
+                    });
+                    
+                    const data = Object.entries(projectMap)
+                        .map(([name, value]) => ({ name, value }))
+                        .sort((a, b) => b.value - a.value);
+                    
+                    return {
+                        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                        legend: { type: 'scroll', orient: 'vertical', right: 20, top: 20, bottom: 20 },
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            center: ['40%', '50%'],
+                            avoidLabelOverlap: true,
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: { show: true, formatter: '{b}\n{d}%' },
+                            data: data
+                        }]
+                    };
+                };
+                
+                // 前十药品监测量
+                const buildTopDrugsChart = () => {
+                    const { year, month } = query.value;
+                    const prevMonth = month === 1 ? 12 : month - 1;
+                    const prevYear = month === 1 ? year - 1 : year;
+                    
+                    // 按项目汇总当月数据
+                    const projectMap = {};
+                    workloadData.value.sample.forEach(item => {
+                        const name = item.project_name;
+                        if (!projectMap[name]) projectMap[name] = { current: 0, prev: 0, lastYear: 0 };
+                        projectMap[name].current += (item[`month_${month}`] || 0);
+                    });
+                    
+                    // 上月数据
+                    const prevData = prevYear === year ? workloadData.value.sample : (workloadData.value.lastYearSample || []);
+                    prevData.forEach(item => {
+                        const name = item.project_name;
+                        if (projectMap[name]) {
+                            projectMap[name].prev += (item[`month_${prevMonth}`] || 0);
+                        }
+                    });
+                    
+                    // 去年同期
+                    (workloadData.value.lastYearSample || []).forEach(item => {
+                        const name = item.project_name;
+                        if (projectMap[name]) {
+                            projectMap[name].lastYear += (item[`month_${month}`] || 0);
+                        }
+                    });
+                    
+                    const sorted = Object.entries(projectMap)
+                        .map(([name, data]) => ({ name, ...data }))
+                        .sort((a, b) => b.current - a.current)
+                        .slice(0, 10);
+                    
+                    return {
+                        tooltip: { trigger: 'axis' },
+                        legend: { data: [`${year}年${month}月`, `${prevYear}年${prevMonth}月`, `${year-1}年${month}月`], bottom: 10 },
+                        grid: { left: 120, right: 40, top: 60, bottom: 80 },
+                        xAxis: { type: 'category', data: sorted.map(d => d.name), axisLabel: { rotate: 30, interval: 0 } },
+                        yAxis: { type: 'value', name: '监测量' },
+                        series: [
+                            { name: `${year}年${month}月`, type: 'bar', data: sorted.map(d => d.current), itemStyle: { color: '#3b82f6' }, label: { show: true, position: 'top' } },
+                            { name: `${prevYear}年${prevMonth}月`, type: 'bar', data: sorted.map(d => d.prev), itemStyle: { color: '#22c55e' }, label: { show: true, position: 'top' } },
+                            { name: `${year-1}年${month}月`, type: 'bar', data: sorted.map(d => d.lastYear), itemStyle: { color: '#f59e0b' }, label: { show: true, position: 'top' } }
+                        ]
+                    };
+                };
+                
+                // 危急值对比
+                const buildCriticalCompareChart = () => {
+                    const { year, mode, quarter, month } = query.value;
+                    
+                    let currentValue = 0, prevValue = 0, lastYearValue = 0;
+                    let currentLabel, prevLabel, lastYearLabel;
+                    
+                    if (mode === 'quarter') {
+                        const qStart = (quarter - 1) * 3 + 1;
+                        const qEnd = quarter * 3;
+                        
+                        workloadData.value.critical.forEach(item => {
+                            currentValue += sumMonths(item, qStart, qEnd);
+                        });
+                        
+                        const prevQ = quarter === 1 ? 4 : quarter - 1;
+                        const prevQStart = (prevQ - 1) * 3 + 1;
+                        const prevQEnd = prevQ * 3;
+                        const prevQYear = quarter === 1 ? year - 1 : year;
+                        
+                        const prevData = prevQYear === year ? workloadData.value.critical : (workloadData.value.lastYearCritical || []);
+                        prevData.forEach(item => {
+                            prevValue += sumMonths(item, prevQStart, prevQEnd);
+                        });
+                        
+                        (workloadData.value.lastYearCritical || []).forEach(item => {
+                            lastYearValue += sumMonths(item, qStart, qEnd);
+                        });
+                        
+                        currentLabel = `${year}年Q${quarter}`;
+                        prevLabel = `${prevQYear}年Q${prevQ}`;
+                        lastYearLabel = `${year-1}年Q${quarter}`;
+                    } else {
+                        workloadData.value.critical.forEach(item => {
+                            currentValue += (item[`month_${month}`] || 0);
+                        });
+                        
+                        const prevMonth = month === 1 ? 12 : month - 1;
+                        const prevYear = month === 1 ? year - 1 : year;
+                        const prevData = prevYear === year ? workloadData.value.critical : (workloadData.value.lastYearCritical || []);
+                        prevData.forEach(item => {
+                            prevValue += (item[`month_${prevMonth}`] || 0);
+                        });
+                        
+                        (workloadData.value.lastYearCritical || []).forEach(item => {
+                            lastYearValue += (item[`month_${month}`] || 0);
+                        });
+                        
+                        currentLabel = `${year}年${month}月`;
+                        prevLabel = `${prevYear}年${prevMonth}月`;
+                        lastYearLabel = `${year-1}年${month}月`;
+                    }
+                    
+                    return {
+                        tooltip: { trigger: 'axis' },
+                        legend: { data: [currentLabel, prevLabel, lastYearLabel], bottom: 10 },
+                        grid: { left: 80, right: 40, top: 60, bottom: 80 },
+                        xAxis: { type: 'category', data: ['危急值数量'] },
+                        yAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: currentLabel, type: 'bar', barWidth: 60, data: [currentValue], itemStyle: { color: '#ef4444' }, label: { show: true, position: 'top', fontSize: 14 } },
+                            { name: prevLabel, type: 'bar', barWidth: 60, data: [prevValue], itemStyle: { color: '#f59e0b' }, label: { show: true, position: 'top', fontSize: 14 } },
+                            { name: lastYearLabel, type: 'bar', barWidth: 60, data: [lastYearValue], itemStyle: { color: '#94a3b8' }, label: { show: true, position: 'top', fontSize: 14 } }
+                        ]
+                    };
+                };
+                
+                // 危急值分布饼图
+                const buildCriticalDistChart = () => {
+                    const { mode, quarter, month } = query.value;
+                    const projectMap = {};
+                    
+                    if (mode === 'quarter') {
+                        const qStart = (quarter - 1) * 3 + 1;
+                        const qEnd = quarter * 3;
+                        workloadData.value.critical.forEach(item => {
+                            const name = item.project_name;
+                            if (!projectMap[name]) projectMap[name] = 0;
+                            projectMap[name] += sumMonths(item, qStart, qEnd);
+                        });
+                    } else {
+                        workloadData.value.critical.forEach(item => {
+                            const name = item.project_name;
+                            if (!projectMap[name]) projectMap[name] = 0;
+                            projectMap[name] += (item[`month_${month}`] || 0);
+                        });
+                    }
+                    
+                    const data = Object.entries(projectMap)
+                        .map(([name, value]) => ({ name, value }))
+                        .filter(d => d.value > 0)
+                        .sort((a, b) => b.value - a.value);
+                    
+                    if (data.length === 0) {
+                        return {
+                            title: { text: '暂无危急值数据', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 16 } }
+                        };
+                    }
+                    
+                    return {
+                        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                        legend: { type: 'scroll', orient: 'vertical', right: 20, top: 20, bottom: 20 },
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            center: ['40%', '50%'],
+                            avoidLabelOverlap: true,
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: { show: true, formatter: '{b}\n{d}%' },
+                            data: data
+                        }]
+                    };
+                };
+                
+                // 格式化金额
+                const formatMoney = (value) => {
+                    if (value >= 10000) {
+                        return (value / 10000).toFixed(1) + '万';
+                    }
+                    return value.toLocaleString();
+                };
+                
+                // 导出图表
+                const exportChart = () => {
+                    if (!chartInstance) return;
+                    const url = chartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+                    const link = document.createElement('a');
+                    
+                    // 生成文件名
+                    const title = chartTitles[chartType.value];
+                    const y = query.value.year;
+                    let periodStr = '';
+                    
+                    if (['trend'].includes(chartType.value)) {
+                        periodStr = query.value.monthStart === query.value.monthEnd 
+                            ? `${y}年${query.value.monthStart}月` 
+                            : `${y}年${query.value.monthStart}-${query.value.monthEnd}月`;
+                    } else if (['quarterCompare', 'incomeQuarterCompare'].includes(chartType.value)) {
+                        periodStr = `${y}年Q${query.value.quarter}`;
+                    } else if (['projectIncome', 'projectSample'].includes(chartType.value)) {
+                        if (query.value.projectMode === 'quarter') {
+                            periodStr = `${y}年Q${query.value.projectQuarter}`;
+                        } else {
+                            periodStr = query.value.monthStart === query.value.monthEnd 
+                                ? `${y}年${query.value.monthStart}月` 
+                                : `${y}年${query.value.monthStart}-${query.value.monthEnd}月`;
+                        }
+                    } else if (['topDrugs'].includes(chartType.value)) {
+                        periodStr = `${y}年${query.value.month}月`;
+                    } else if (['criticalCompare', 'criticalDist'].includes(chartType.value)) {
+                        periodStr = query.value.mode === 'quarter' 
+                            ? `${y}年Q${query.value.quarter}` 
+                            : `${y}年${query.value.month}月`;
+                    }
+                    
+                    link.download = `${title}_${periodStr}.png`;
+                    link.href = url;
+                    link.click();
+                };
+                
+                // 监听窗口大小变化
+                window.addEventListener('resize', () => {
+                    if (chartInstance) chartInstance.resize();
+                });
+                
+                return {
+                    availableYears, chartType, query, loading, hasData,
+                    chartTitles, chartPeriodText,
+                    generateChart, exportChart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

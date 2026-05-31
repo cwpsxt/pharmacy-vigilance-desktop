@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' http://localhost:5001; navigate-to http://localhost:5001;">
+    <title>软件激活 - 医院药学药物警戒与运营绩效可视化分析系统</title>
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap-icons-local.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #app { display: flex; width: 100%; height: 100vh; }
+        .brand-section {
+            flex: 1;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px 50px;
+            position: relative;
+            overflow: hidden;
+            color: white;
+        }
+        .brand-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url('../assets/bg.png') no-repeat center center;
+            background-size: cover;
+            opacity: 0.1;
+        }
+        .brand-content { position: relative; z-index: 1; max-width: 500px; }
+        .brand-title { font-size: 32px; font-weight: 700; margin-bottom: 16px; }
+        .brand-subtitle { font-size: 16px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 24px; }
+        .step-list { list-style: none; padding: 0; }
+        .step-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            color: rgba(255,255,255,0.85);
+            font-size: 15px;
+        }
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(59,130,246,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .activate-section {
+            width: 480px;
+            min-width: 480px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .activate-header h2 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+        .activate-header p { color: #64748b; font-size: 15px; }
+        .activate-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-top: 24px;
+        }
+        .machine-box {
+            background: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .machine-label { font-size: 13px; color: #64748b; margin-bottom: 8px; }
+        .machine-id {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+            word-break: break-all;
+            color: #0f172a;
+            margin-bottom: 12px;
+        }
+        .btn-copy {
+            border: 1px solid #cbd5e1;
+            background: white;
+            color: #334155;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 14px;
+        }
+        .btn-copy:hover { background: #f8fafc; }
+        .form-control-code {
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            padding: 14px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        .form-control-code:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
+        }
+        .btn-activate {
+            width: 100%;
+            height: 50px;
+            border: none;
+            border-radius: 10px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+        .btn-activate:disabled { opacity: 0.7; }
+        .alert-box {
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .alert-success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .alert-warn { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+        .version-info { margin-top: 24px; text-align: center; color: #94a3b8; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="brand-section">
+            <div class="brand-content">
+                <h1 class="brand-title">软件授权激活</h1>
+                <p class="brand-subtitle">本软件需授权后方可使用。请将机器码发送给软件提供商，获取激活码后在本页完成激活。</p>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-num">1</span><span>复制右侧机器码</span></li>
+                    <li class="step-item"><span class="step-num">2</span><span>发送给软件提供商</span></li>
+                    <li class="step-item"><span class="step-num">3</span><span>输入收到的激活码并激活</span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="activate-section">
+            <div class="activate-header">
+                <h2>激活软件</h2>
+                <p v-if="statusReason === 'expired'">授权已过期，请联系厂商续期后重新激活</p>
+                <p v-else-if="statusReason === 'machine_mismatch'">检测到机器环境变化，请重新申请激活码</p>
+                <p v-else>首次使用请先完成授权激活</p>
+            </div>
+
+            <div class="activate-card">
+                <div v-if="showError" class="alert-box alert-error">{{ errorMessage }}</div>
+                <div v-if="showSuccess" class="alert-box alert-success">{{ successMessage }}</div>
+                <div v-if="statusReason === 'expired' && expireAt" class="alert-box alert-warn">
+                    上次授权到期日：{{ expireAt }}
+                </div>
+
+                <div class="machine-box">
+                    <div class="machine-label">本机机器码</div>
+                    <div class="machine-id">{{ machineId || '加载中...' }}</div>
+                    <button type="button" class="btn-copy" @click="copyMachineId" :disabled="!machineId">
+                        <i class="bi bi-clipboard"></i> 复制机器码
+                    </button>
+                </div>
+
+                <label for="activationCode" class="form-label">激活码</label>
+                <textarea
+                    id="activationCode"
+                    class="form-control form-control-code w-100"
+                    v-model="activationCode"
+                    placeholder="请输入软件提供商发给您的激活码"
+                    :disabled="isLoading"
+                    @input="formatCodeInput"
+                ></textarea>
+
+                <button type="button" class="btn-activate" @click="handleActivate" :disabled="isLoading || !activationCode.trim()">
+                    <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>立即激活</span>
+                </button>
+            </div>
+
+            <div class="version-info">版本 {{ appVersion }}</div>
+        </div>
+    </div>
+
+    <script src="../libs/vue/vue.global.prod.js"></script>
+    <script src="../libs/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        const API_BASE = 'http://localhost:5001';
+
+        createApp({
+            setup() {
+                const machineId = ref('');
+                const activationCode = ref('');
+                const isLoading = ref(false);
+                const errorMessage = ref('');
+                const successMessage = ref('');
+                const showError = ref(false);
+                const showSuccess = ref(false);
+                const appVersion = ref('1.0.0');
+                const statusReason = ref('');
+                const expireAt = ref('');
+
+                const showErrorMessage = (message) => {
+                    errorMessage.value = message;
+                    successMessage.value = '';
+                    showError.value = true;
+                    showSuccess.value = false;
+                };
+
+                const showSuccessMessage = (message) => {
+                    successMessage.value = message;
+                    errorMessage.value = '';
+                    showSuccess.value = true;
+                    showError.value = false;
+                };
+
+                const formatCodeInput = () => {
+                    let value = activationCode.value.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+                    if (value.includes('.')) {
+                        const parts = value.split('.');
+                        activationCode.value = parts.map(part =>
+                            part.replace(/(.{4})/g, '$1-').replace(/-$/, '')
+                        ).join('.');
+                    } else {
+                        activationCode.value = value.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+                    }
+                };
+
+                const copyMachineId = async () => {
+                    if (!machineId.value) return;
+                    try {
+                        await navigator.clipboard.writeText(machineId.value);
+                        showSuccessMessage('机器码已复制到剪贴板');
+                        setTimeout(() => { showSuccess.value = false; }, 2000);
+                    } catch (e) {
+                        showErrorMessage('复制失败，请手动选择复制');
+                    }
+                };
+
+                const loadStatus = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/api/license/status`);
+                        const data = await res.json();
+                        statusReason.value = data.reason || '';
+                        expireAt.value = data.expire_at || '';
+                        if (data.valid) {
+                            window.location.href = 'login.html';
+                        }
+                    } catch (e) {
+                        showErrorMessage('无法连接本地服务，请稍后重试');
+                    }
+                };
+
+                const loadMachineId = async () => {
+                    const res = await fetch(`${API_BASE}/api/license/machine-id`);
+                    const data = await res.json();
+                    machineId.value = data.machine_id || '';
+                };
+
+                const handleActivate = async () => {
+                    if (!activationCode.value.trim()) return;
+                    isLoading.value = true;
+                    showError.value = false;
+                    showSuccess.value = false;
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/license/activate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: activationCode.value.trim() })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            showSuccessMessage('激活成功，正在进入登录页...');
+                            setTimeout(() => { window.location.href = 'login.html'; }, 1000);
+                        } else {
+                            showErrorMessage(data.message || '激活失败');
+                        }
+                    } catch (e) {
+                        showErrorMessage('网络错误，请检查服务是否启动');
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                onMounted(async () => {
+                    if (window.electronAPI) {
+                        try {
+                            appVersion.value = await window.electronAPI.getAppVersion();
+                        } catch (e) {}
+                    }
+                    await loadMachineId();
+                    await loadStatus();
+                });
+
+                return {
+                    machineId,
+                    activationCode,
+                    isLoading,
+                    errorMessage,
+                    successMessage,
+                    showError,
+                    showSuccess,
+                    appVersion,
+                    statusReason,
+                    expireAt,
+                    formatCodeInput,
+                    copyMachineId,
+                    handleActivate
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

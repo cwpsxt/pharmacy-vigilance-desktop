@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <script src="../../libs/echarts/echarts.min.js"></script>
+    <style>
+        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+        .search-input { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; width: 250px; }
+        .search-input:focus { outline: none; border-color: #3b82f6; }
+        .action-btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+        .action-btn-edit { background: #e0f2fe; color: #0369a1; }
+        .action-btn-delete { background: #fee2e2; color: #dc2626; }
+        .action-btn:hover { opacity: 0.8; }
+                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-card { width: 450px; margin: 0; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px; }
+        .form-input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+        .form-input:focus { outline: none; border-color: #3b82f6; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .checkbox-cell { width: 40px; text-align: center; }
+        .checkbox-cell input { width: 16px; height: 16px; cursor: pointer; }
+        
+        /* 统计弹窗样式 */
+        .stats-modal { width: 90%; max-width: 1100px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+        .stats-modal .card-body { flex: 1; overflow-y: auto; padding: 20px; }
+        .stats-filter { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding: 16px; background: #f8fafc; border-radius: 8px; }
+        .stats-filter-item { display: flex; align-items: center; gap: 8px; }
+        .stats-filter-item label { font-size: 14px; color: #475569; font-weight: 500; white-space: nowrap; }
+        .stats-filter-item select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-width: 90px; }
+        .stats-info { padding: 12px 16px; background: #e0f2fe; border-radius: 8px; font-size: 14px; color: #0369a1; margin-bottom: 16px; }
+        .chart-container { width: 100%; height: 420px; }
+        .stats-empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+        .stats-empty i { font-size: 48px; margin-bottom: 12px; display: block; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="toast.show" :class="['toast', 'toast-' + toast.type]">
+            <i :class="toast.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
+            {{ toast.message }}
+        </div>
+
+        <div class="page-header">
+            <h1 class="page-title"><i class="bi bi-capsule"></i> 药物分类管理</h1>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="card" style="margin-bottom: 16px;">
+            <div class="card-body" style="padding: 16px;">
+                <div class="toolbar">
+                    <input v-model="searchKeyword" class="search-input" placeholder="搜索药品名称或分类" @keyup.enter="searchCategories">
+                    <button class="btn btn-secondary" @click="searchCategories"><i class="bi bi-search"></i> 搜索</button>
+                    <button class="btn btn-secondary" @click="resetSearch"><i class="bi bi-arrow-clockwise"></i> 重置</button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-success" @click="showImportModal = true"><i class="bi bi-upload"></i> 导入Excel</button>
+                    <button class="btn btn-primary" @click="openAddModal"><i class="bi bi-plus-lg"></i> 新增药物</button>
+                    <button class="btn btn-danger" :disabled="selectedIds.length === 0" @click="batchDelete"><i class="bi bi-trash"></i> 批量删除</button>
+                    <button class="btn btn-info" @click="openStatsWindow"><i class="bi bi-bar-chart-fill"></i> 药物分类监测量统计</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-list-ul"></i> 分类列表 (共 {{ total }} 条)</div>
+            </div>
+            <div class="card-body">
+                <div v-if="loading" class="loading"><div class="spinner"></div></div>
+                <div v-else-if="categories.length === 0" class="empty-state">
+                    <i class="bi bi-capsule"></i>
+                    <h3>暂无药物分类</h3>
+                    <p>点击上方按钮批量导入或新增药物分类</p>
+                </div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"><input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected"></th>
+                                <th style="width: 60px;">序号</th>
+                                <th>药品名称</th>
+                                <th>药品分类</th>
+                                <th style="width: 160px;">创建时间</th>
+                                <th style="width: 160px;">更新时间</th>
+                                <th style="width: 120px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, idx) in categories" :key="item.id">
+                                <td class="checkbox-cell"><input type="checkbox" :value="item.id" v-model="selectedIds"></td>
+                                <td>{{ (page - 1) * pageSize + idx + 1 }}</td>
+                                <td>{{ item.drug_name }}</td>
+                                <td><span class="badge badge-info">{{ item.drug_category }}</span></td>
+                                <td>{{ formatDate(item.created_at) }}</td>
+                                <td>{{ formatDate(item.updated_at) }}</td>
+                                <td>
+                                    <button class="action-btn action-btn-edit" @click="openEditModal(item)"><i class="bi bi-pencil"></i> 编辑</button>
+                                    <button class="action-btn action-btn-delete" @click="deleteSingle(item.id)"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination">
+                        <span style="color: #64748b; font-size: 13px;">共 {{ total }} 条</span>
+                        <select v-model="pageSize" @change="page = 1; loadCategories()" style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                            <option :value="10">10条/页</option>
+                            <option :value="20">20条/页</option>
+                            <option :value="50">50条/页</option>
+                            <option :value="100">100条/页</option>
+                        </select>
+                        <button :disabled="page <= 1" @click="page--; loadCategories()">上一页</button>
+                        <span style="padding: 0 12px;">{{ page }} / {{ Math.ceil(total / pageSize) || 1 }}</span>
+                        <button :disabled="page * pageSize >= total" @click="page++; loadCategories()">下一页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增/编辑弹窗 -->
+        <div v-if="showFormModal" class="modal-overlay">
+            <div class="card modal-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="bi bi-capsule"></i> {{ formMode === 'add' ? '新增药物' : '编辑药物' }}</div>
+                    <button class="btn btn-secondary" @click="showFormModal = false" style="padding: 4px 8px;"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label">药品名称 <span style="color: #ef4444;">*</span></label>
+                        <input v-model="formData.drug_name" class="form-input" placeholder="请输入药品名称">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">药品分类 <span style="color: #ef4444;">*</span></label>
+                        <input v-model="formData.drug_category" class="form-input" placeholder="请输入药品分类">
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @click="showFormModal = false">取消</button>
+                        <button class="btn btn-primary" @click="submitForm" :disabled="formSubmitting">{{ formSubmitting ? '提交中...' : '确定' }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导入弹窗 -->
+        <div v-if="showImportModal" class="modal-overlay">
+            <div class="card modal-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="bi bi-upload"></i> 批量导入药物分类</div>
+                    <button class="btn btn-secondary" @click="showImportModal = false" style="padding: 4px 8px;"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" @click="$refs.importFileInput.click()" style="padding: 30px;">
+                        <div v-if="importing" class="loading" style="padding: 20px;">
+                            <div class="spinner"></div>
+                            <p style="margin-top: 12px;">正在导入...</p>
+                        </div>
+                        <template v-else>
+                            <i class="bi bi-file-earmark-excel" style="font-size: 36px; color: var(--success); margin-bottom: 12px;"></i>
+                            <div class="upload-text">点击选择 Excel 文件</div>
+                            <div class="upload-hint">文件应包含"药品名称"和"药品分类"列</div>
+                        </template>
+                    </div>
+                    <input type="file" ref="importFileInput" class="file-input" accept=".xlsx,.xls" @change="handleImport">
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计弹窗 -->
+        <div v-if="showStatsModal" class="modal-overlay" @click.self="showStatsModal = false">
+            <div class="card stats-modal">
+                <div class="card-header">
+                    <div class="card-title"><i class="bi bi-bar-chart-fill"></i> 药物分类监测量统计</div>
+                    <button class="btn btn-secondary" @click="showStatsModal = false" style="padding: 4px 8px;"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="card-body">
+                    <div class="stats-filter">
+                        <div class="stats-filter-item">
+                            <label>年度：</label>
+                            <select v-model="statsQuery.year">
+                                <option v-for="y in availableYears" :key="y" :value="y">{{ y }}年</option>
+                            </select>
+                        </div>
+                        <div class="stats-filter-item">
+                            <label>起始月份：</label>
+                            <select v-model="statsQuery.monthStart">
+                                <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                            </select>
+                        </div>
+                        <div class="stats-filter-item">
+                            <label>结束月份：</label>
+                            <select v-model="statsQuery.monthEnd">
+                                <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" @click="loadStatistics"><i class="bi bi-search"></i> 生成图表</button>
+                        <button class="btn btn-secondary" @click="resetStatsQuery"><i class="bi bi-arrow-clockwise"></i> 重置</button>
+                        <button v-if="statsChartData.length > 0" class="btn btn-success" @click="exportStatsChart"><i class="bi bi-download"></i> 导出图片</button>
+                    </div>
+                    
+                    <div v-if="statsLoading" class="loading" style="padding: 60px;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 12px; color: #64748b;">加载中...</p>
+                    </div>
+                    <div v-else-if="statsChartData.length === 0" class="stats-empty">
+                        <i class="bi bi-bar-chart"></i>
+                        <p>请选择年度和月份区间，点击"生成图表"查看统计数据</p>
+                    </div>
+                    <div v-else>
+                        <div class="stats-info">
+                            <strong>统计期间：</strong>
+                            <span v-if="statsQuery.monthStart === statsQuery.monthEnd">{{ statsQuery.year }}年 {{ statsQuery.monthStart }}月（对比上月及去年同期）</span>
+                            <span v-else>{{ statsQuery.year }}年 {{ statsQuery.monthStart }}月 - {{ statsQuery.monthEnd }}月</span>
+                        </div>
+                        <div id="statsChartContainer" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const categories = ref([]);
+                const total = ref(0);
+                const page = ref(1);
+                const pageSize = ref(20);
+                const loading = ref(false);
+                const searchKeyword = ref('');
+                const selectedIds = ref([]);
+                
+                const showImportModal = ref(false);
+                const importing = ref(false);
+                const showFormModal = ref(false);
+                const formMode = ref('add');
+                const formData = ref({ id: null, drug_name: '', drug_category: '' });
+                const formSubmitting = ref(false);
+                
+                // 统计弹窗相关
+                const showStatsModal = ref(false);
+                const currentYear = new Date().getFullYear();
+                const availableYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+                const statsQuery = ref({ year: currentYear, monthStart: 1, monthEnd: 12 });
+                const statsLoading = ref(false);
+                const statsChartData = ref([]);
+                const statsResponseData = ref(null);
+                let statsChartInstance = null;
+                
+                const toast = ref({ show: false, type: 'success', message: '' });
+                const showToast = (type, message) => {
+                    toast.value = { show: true, type, message };
+                    setTimeout(() => toast.value.show = false, 3000);
+                };
+
+                const isAllSelected = computed(() => {
+                    return categories.value.length > 0 && selectedIds.value.length === categories.value.length;
+                });
+
+                const toggleSelectAll = (e) => {
+                    if (e.target.checked) {
+                        selectedIds.value = categories.value.map(c => c.id);
+                    } else {
+                        selectedIds.value = [];
+                    }
+                };
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    return dateStr.split('T')[0] + ' ' + (dateStr.split('T')[1] || '').substring(0, 5);
+                };
+
+                const loadCategories = async () => {
+                    loading.value = true;
+                    selectedIds.value = [];
+                    try {
+                        const params = new URLSearchParams({ page: page.value, pageSize: pageSize.value });
+                        if (searchKeyword.value) params.append('keyword', searchKeyword.value);
+                        const res = await apiGet(`/api/drug-category?${params}`);
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            categories.value = data.categories || [];
+                            total.value = data.total || 0;
+                        }
+                    } catch (e) { console.error(e); }
+                    finally { loading.value = false; }
+                };
+
+                const searchCategories = () => { page.value = 1; loadCategories(); };
+                const resetSearch = () => { searchKeyword.value = ''; page.value = 1; loadCategories(); };
+
+                const openAddModal = () => {
+                    formMode.value = 'add';
+                    formData.value = { id: null, drug_name: '', drug_category: '' };
+                    showFormModal.value = true;
+                };
+
+                const openEditModal = (item) => {
+                    formMode.value = 'edit';
+                    formData.value = { id: item.id, drug_name: item.drug_name, drug_category: item.drug_category };
+                    showFormModal.value = true;
+                };
+
+                const submitForm = async () => {
+                    if (!formData.value.drug_name.trim()) { showToast('error', '药品名称不能为空'); return; }
+                    if (!formData.value.drug_category.trim()) { showToast('error', '药品分类不能为空'); return; }
+                    formSubmitting.value = true;
+                    try {
+                        let res;
+                        if (formMode.value === 'add') {
+                            res = await apiPost('/api/drug-category', formData.value);
+                        } else {
+                            res = await apiPut(`/api/drug-category/${formData.value.id}`, formData.value);
+                        }
+                        if (res && res.ok) {
+                            showToast('success', formMode.value === 'add' ? '新增成功' : '更新成功');
+                            showFormModal.value = false;
+                            loadCategories();
+                        } else if (res) {
+                            const data = await res.json();
+                            showToast('error', data.message || '操作失败');
+                        }
+                    } catch (e) { showToast('error', '操作失败'); }
+                    finally { formSubmitting.value = false; }
+                };
+
+                const deleteSingle = async (id) => {
+                    if (!confirm('确定要删除该记录吗？')) return;
+                    try {
+                        const res = await apiDelete(`/api/drug-category/${id}`);
+                        if (res && res.ok) {
+                            showToast('success', '删除成功');
+                            loadCategories();
+                        } else if (res) {
+                            const data = await res.json();
+                            showToast('error', data.message || '删除失败');
+                        }
+                    } catch (e) { showToast('error', '删除失败'); }
+                };
+
+                const batchDelete = async () => {
+                    if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 条记录吗？`)) return;
+                    try {
+                        const res = await apiDelete('/api/drug-category/batch', { ids: selectedIds.value });
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            showToast('success', data.message || '批量删除成功');
+                            loadCategories();
+                        } else if (res) {
+                            const data = await res.json();
+                            showToast('error', data.message || '批量删除失败');
+                        }
+                    } catch (e) { showToast('error', '批量删除失败'); }
+                };
+
+                const handleImport = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    importing.value = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await apiPostForm('/api/drug-category/import', formData);
+                        if (!res) return;
+                        const data = await res.json();
+                        if (res.ok) {
+                            showToast('success', data.message || '导入成功');
+                            showImportModal.value = false;
+                            loadCategories();
+                        } else {
+                            showToast('error', data.message || '导入失败');
+                        }
+                    } catch (err) {
+                        showToast('error', '导入失败');
+                    } finally {
+                        importing.value = false;
+                        e.target.value = '';
+                    }
+                };
+
+                const openStatsWindow = () => {
+                    showStatsModal.value = true;
+                    statsChartData.value = [];
+                    statsResponseData.value = null;
+                    if (statsChartInstance) {
+                        statsChartInstance.dispose();
+                        statsChartInstance = null;
+                    }
+                };
+
+                const loadStatistics = async () => {
+                    if (statsQuery.value.monthStart > statsQuery.value.monthEnd) {
+                        showToast('error', '起始月份不能大于结束月份');
+                        return;
+                    }
+                    statsLoading.value = true;
+                    try {
+                        const params = new URLSearchParams({
+                            year: statsQuery.value.year,
+                            monthStart: statsQuery.value.monthStart,
+                            monthEnd: statsQuery.value.monthEnd
+                        });
+                        const res = await apiGet(`/api/drug-category/statistics?${params}`);
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            statsChartData.value = data.chartData || [];
+                            statsResponseData.value = data;
+                            nextTick(() => renderStatsChart(data));
+                        }
+                    } catch (e) { console.error(e); showToast('error', '加载统计数据失败'); }
+                    finally { statsLoading.value = false; }
+                };
+
+                const resetStatsQuery = () => {
+                    statsQuery.value = { year: currentYear, monthStart: 1, monthEnd: 12 };
+                    statsChartData.value = [];
+                    statsResponseData.value = null;
+                    if (statsChartInstance) { statsChartInstance.dispose(); statsChartInstance = null; }
+                };
+
+                const renderStatsChart = (data) => {
+                    const dom = document.getElementById('statsChartContainer');
+                    if (!dom) return;
+                    if (statsChartInstance) statsChartInstance.dispose();
+                    statsChartInstance = echarts.init(dom);
+
+                    const chartDataArr = data.chartData || [];
+                    const isSingleMonth = data.isSingleMonth;
+                    const categories = chartDataArr.map(c => c.category);
+                    
+                    let legendData = [];
+                    let series = [];
+
+                    if (isSingleMonth) {
+                        const months = chartDataArr[0]?.months || [];
+                        legendData = months.map(m => m.month);
+                        const colors = ['#3b82f6', '#22c55e', '#f59e0b'];
+                        
+                        months.forEach((m, idx) => {
+                            series.push({
+                                name: m.month,
+                                type: 'bar',
+                                data: chartDataArr.map(c => c.months[idx]?.value || 0),
+                                itemStyle: { color: colors[idx] },
+                                label: { show: true, position: 'top', fontSize: 11 }
+                            });
+                        });
+                    } else {
+                        const monthCount = chartDataArr[0]?.months?.length || 0;
+                        const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#a855f7'];
+                        
+                        for (let i = 0; i < monthCount; i++) {
+                            const monthNum = data.monthStart + i;
+                            legendData.push(monthNum + '月');
+                            series.push({
+                                name: monthNum + '月',
+                                type: 'bar',
+                                data: chartDataArr.map(c => c.months[i]?.value || 0),
+                                itemStyle: { color: colors[i % colors.length] },
+                                label: { show: monthCount <= 3, position: 'top', fontSize: 10 }
+                            });
+                        }
+                    }
+
+                    statsChartInstance.setOption({
+                        title: { text: '药物分类监测量统计', left: 'center', textStyle: { fontSize: 16, fontWeight: 600 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: legendData, bottom: 10 },
+                        grid: { left: 60, right: 40, top: 60, bottom: 70 },
+                        xAxis: { type: 'category', data: categories, axisLabel: { rotate: 30, fontSize: 12, interval: 0 } },
+                        yAxis: { type: 'value', name: '监测量', nameTextStyle: { fontSize: 13 } },
+                        series: series
+                    });
+                };
+
+                const exportStatsChart = () => {
+                    if (!statsChartInstance) return;
+                    const url = statsChartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+                    const link = document.createElement('a');
+                    link.download = `药物分类监测量统计_${statsQuery.value.year}年${statsQuery.value.monthStart}-${statsQuery.value.monthEnd}月.png`;
+                    link.href = url;
+                    link.click();
+                };
+
+                onMounted(loadCategories);
+
+                return {
+                    categories, total, page, pageSize, loading, searchKeyword, selectedIds,
+                    showImportModal, importing, showFormModal, formMode, formData, formSubmitting,
+                    toast, isAllSelected, toggleSelectAll, formatDate,
+                    loadCategories, searchCategories, resetSearch, openAddModal, openEditModal,
+                    submitForm, deleteSingle, batchDelete, handleImport, openStatsWindow,
+                    // 统计弹窗
+                    showStatsModal, availableYears, statsQuery, statsLoading, statsChartData,
+                    loadStatistics, resetStatsQuery, exportStatsChart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

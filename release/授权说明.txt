@@ -1,0 +1,58 @@
+医院药学药物警戒与运营绩效可视化分析系统 - 授权说明
+================================================
+
+一、用户激活步骤
+----------------
+1. 首次安装并启动软件，会自动进入「软件激活」页面。
+2. 点击「复制机器码」，将机器码发送给软件提供商。
+3. 收到激活码后，在激活页输入并点击「立即激活」。
+4. 激活成功后进入登录页，默认账号 admin / admin。
+5. 授权到期前请联系厂商续期，获取新激活码后重新激活。
+
+二、厂商生成激活码（开发者/交付方操作）
+--------------------------------------
+首次部署（整个产品生命周期只做一次）：
+
+  cd desktop-client
+  python tools/generate_keypair.py
+
+日常给用户发码：
+
+  python tools/license_generator.py \
+    --machine-id <用户机器码> \
+    --expire 2027-05-31
+
+续期（同一机器码，修改到期日）：
+
+  python tools/license_generator.py \
+    --machine-id <用户机器码> \
+    --expire 2028-05-31
+
+批量生成（CSV 列：machine_id,expire,remark）：
+
+  python tools/license_generator.py --batch licenses.csv --output licenses_out.csv
+
+Web 页面生成（推荐）：
+
+  cd desktop-client
+  bash tools/start_license_admin.sh
+
+  浏览器访问: http://127.0.0.1:5050
+
+  可选环境变量：
+    LICENSE_ADMIN_PASSWORD=你的密码   # 启用登录保护
+    LICENSE_ADMIN_PORT=5050           # 修改端口
+    LICENSE_ADMIN_HOST=127.0.0.1      # 默认仅本机访问
+
+三、注意事项
+------------
+- private_key.pem 仅厂商保管，不要随安装包分发，不要提交 git。
+- 每台电脑机器码不同，换电脑需重新申请激活码。
+- 授权到期后软件将无法登录和使用，需续期激活。
+- 开发调试可设置环境变量 SKIP_LICENSE=1 跳过授权检查。
+
+四、授权数据存储位置
+--------------------
+Windows: %LOCALAPPDATA%\\PharmacyVigilance\\data\\license.dat
+macOS:   ~/Library/Application Support/PharmacyVigilance/data/license.dat
+Linux:   ~/.local/share/PharmacyVigilance/data/license.dat

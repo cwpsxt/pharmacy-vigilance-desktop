@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>药物分类监测量统计</title>
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <script src="../../libs/echarts/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; min-height: 100vh; }
+        
+        .page-header { 
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white; 
+            padding: 20px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        .page-title { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .page-title i { font-size: 24px; }
+        
+        .content { padding: 24px; }
+        
+        .filter-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .filter-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .filter-item { display: flex; align-items: center; gap: 8px; }
+        .filter-item label { font-size: 14px; color: #475569; font-weight: 500; }
+        .filter-item select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-width: 100px; }
+        .filter-item select:focus { outline: none; border-color: #3b82f6; }
+        
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-secondary { background: #e2e8f0; color: #475569; }
+        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-success:hover { background: #16a34a; }
+        
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 500px;
+        }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .chart-title { font-size: 16px; font-weight: 600; color: #1e293b; }
+        .chart-info { padding: 12px 16px; background: #f1f5f9; border-radius: 8px; font-size: 14px; color: #475569; margin-bottom: 16px; }
+        
+        .chart-container { width: 100%; height: 450px; }
+        
+        .empty-state { text-align: center; padding: 80px 20px; color: #94a3b8; }
+        .empty-state i { font-size: 64px; margin-bottom: 16px; display: block; }
+        .empty-state p { font-size: 15px; }
+        
+        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 0; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="page-header">
+            <div class="page-title"><i class="bi bi-bar-chart-fill"></i> 药物分类监测量统计</div>
+        </div>
+        
+        <div class="content">
+            <div class="filter-card">
+                <div class="filter-row">
+                    <div class="filter-item">
+                        <label>年度：</label>
+                        <select v-model="query.year">
+                            <option v-for="y in availableYears" :key="y" :value="y">{{ y }}年</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>起始月份：</label>
+                        <select v-model="query.monthStart">
+                            <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>结束月份：</label>
+                        <select v-model="query.monthEnd">
+                            <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" @click="loadStatistics"><i class="bi bi-search"></i> 生成图表</button>
+                    <button class="btn btn-secondary" @click="resetQuery"><i class="bi bi-arrow-clockwise"></i> 重置</button>
+                    <button v-if="chartData.length > 0" class="btn btn-success" @click="exportChart"><i class="bi bi-download"></i> 导出图片</button>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <div v-if="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 16px; color: #64748b;">加载中...</p>
+                </div>
+                <div v-else-if="chartData.length === 0" class="empty-state">
+                    <i class="bi bi-bar-chart"></i>
+                    <p>请选择年度和月份区间，点击"生成图表"查看统计数据</p>
+                </div>
+                <div v-else>
+                    <div class="chart-header">
+                        <div class="chart-title">药物分类监测量统计图表</div>
+                    </div>
+                    <div class="chart-info">
+                        <strong>统计期间：</strong>
+                        <span v-if="query.monthStart === query.monthEnd">{{ query.year }}年 {{ query.monthStart }}月（对比上月及去年同期）</span>
+                        <span v-else>{{ query.year }}年 {{ query.monthStart }}月 - {{ query.monthEnd }}月</span>
+                    </div>
+                    <div id="chartContainer" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, onMounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const currentYear = new Date().getFullYear();
+                const availableYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+                const query = ref({ year: currentYear, monthStart: 1, monthEnd: 12 });
+                
+                const loading = ref(false);
+                const chartData = ref([]);
+                const responseData = ref(null);
+                let chartInstance = null;
+
+                const loadStatistics = async () => {
+                    if (query.value.monthStart > query.value.monthEnd) {
+                        alert('起始月份不能大于结束月份');
+                        return;
+                    }
+                    loading.value = true;
+                    try {
+                        const params = new URLSearchParams({
+                            year: query.value.year,
+                            monthStart: query.value.monthStart,
+                            monthEnd: query.value.monthEnd
+                        });
+                        const res = await apiGet(`/api/drug-category/statistics?${params}`);
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            chartData.value = data.chartData || [];
+                            responseData.value = data;
+                            nextTick(() => renderChart(data));
+                        }
+                    } catch (e) { console.error(e); }
+                    finally { loading.value = false; }
+                };
+
+                const resetQuery = () => {
+                    query.value = { year: currentYear, monthStart: 1, monthEnd: 12 };
+                    chartData.value = [];
+                    responseData.value = null;
+                    if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+                };
+
+                const renderChart = (data) => {
+                    const dom = document.getElementById('chartContainer');
+                    if (!dom) return;
+                    if (chartInstance) chartInstance.dispose();
+                    chartInstance = echarts.init(dom);
+
+                    const chartDataArr = data.chartData || [];
+                    const isSingleMonth = data.isSingleMonth;
+                    const categories = chartDataArr.map(c => c.category);
+                    
+                    let legendData = [];
+                    let series = [];
+
+                    if (isSingleMonth) {
+                        const months = chartDataArr[0]?.months || [];
+                        legendData = months.map(m => m.month);
+                        const colors = ['#3b82f6', '#22c55e', '#f59e0b'];
+                        
+                        months.forEach((m, idx) => {
+                            series.push({
+                                name: m.month,
+                                type: 'bar',
+                                data: chartDataArr.map(c => c.months[idx]?.value || 0),
+                                itemStyle: { color: colors[idx] },
+                                label: { show: true, position: 'top', fontSize: 11 }
+                            });
+                        });
+                    } else {
+                        const monthCount = chartDataArr[0]?.months?.length || 0;
+                        const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#a855f7'];
+                        
+                        for (let i = 0; i < monthCount; i++) {
+                            const monthNum = data.monthStart + i;
+                            legendData.push(monthNum + '月');
+                            series.push({
+                                name: monthNum + '月',
+                                type: 'bar',
+                                data: chartDataArr.map(c => c.months[i]?.value || 0),
+                                itemStyle: { color: colors[i % colors.length] },
+                                label: { show: monthCount <= 3, position: 'top', fontSize: 10 }
+                            });
+                        }
+                    }
+
+                    chartInstance.setOption({
+                        title: { text: '药物分类监测量统计', left: 'center', textStyle: { fontSize: 18, fontWeight: 600 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: legendData, bottom: 10 },
+                        grid: { left: 60, right: 40, top: 80, bottom: 80 },
+                        xAxis: { type: 'category', data: categories, axisLabel: { rotate: 30, fontSize: 12, interval: 0 } },
+                        yAxis: { type: 'value', name: '监测量', nameTextStyle: { fontSize: 13 } },
+                        series: series
+                    });
+                    
+                    // 响应窗口大小变化
+                    window.addEventListener('resize', () => chartInstance && chartInstance.resize());
+                };
+
+                const exportChart = () => {
+                    if (!chartInstance) return;
+                    const url = chartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+                    const link = document.createElement('a');
+                    link.download = `药物分类监测量统计_${query.value.year}年${query.value.monthStart}-${query.value.monthEnd}月.png`;
+                    link.href = url;
+                    link.click();
+                };
+
+                return {
+                    availableYears, query, loading, chartData,
+                    loadStatistics, resetQuery, exportChart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

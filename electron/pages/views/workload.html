@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; padding: 24px; min-height: 100vh; }
+        
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 24px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 10px; }
+        .page-title i { color: #3b82f6; }
+        
+        .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; }
+        .btn-primary:hover { opacity: 0.9; }
+        
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .card-title { font-size: 16px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+        .card-title i { color: #3b82f6; }
+        .card-body { padding: 20px; }
+        
+        .filter-row { display: flex; gap: 16px; margin-bottom: 20px; align-items: center; }
+        .form-group { display: flex; align-items: center; gap: 8px; }
+        .form-label { font-size: 14px; color: #64748b; }
+        .form-select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-width: 120px; }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        .tab { padding: 8px 16px; font-size: 14px; color: #64748b; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+        .tab:hover { background: #f1f5f9; }
+        .tab.active { background: #dbeafe; color: #1d4ed8; font-weight: 500; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { background: #f8fafc; padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        .data-table td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+        .data-table tr:hover { background: #f8fafc; }
+        .data-table .num { text-align: right; font-family: 'SF Mono', Monaco, monospace; }
+        .data-table .total { font-weight: 600; color: #1d4ed8; }
+        
+        .table-container { overflow-x: auto; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; }
+        .empty-state h3 { font-size: 16px; color: #64748b; margin-bottom: 8px; }
+        .empty-state p { font-size: 14px; }
+        
+        .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #64748b; }
+        .loading i { animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; z-index: 1000; animation: slideIn 0.3s; display: flex; align-items: center; gap: 8px; }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .stats-row { display: flex; gap: 16px; margin-bottom: 20px; }
+        .stat-card { flex: 1; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 10px; padding: 16px; border: 1px solid #bae6fd; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #0369a1; }
+        .stat-label { font-size: 13px; color: #0c4a6e; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="toast.show" :class="['toast', toast.type]">
+            <i :class="toast.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
+            {{ toast.message }}
+        </div>
+
+        <div class="page-header">
+            <h1 class="page-title"><i class="bi bi-bar-chart-fill"></i> 工作量管理</h1>
+            <button class="btn btn-primary" @click="goToImport">
+                <i class="bi bi-cloud-arrow-up"></i> 导入数据
+            </button>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-database"></i> 工作量数据</div>
+            </div>
+            <div class="card-body">
+                <div class="filter-row">
+                    <div class="form-group">
+                        <span class="form-label">年份：</span>
+                        <select v-model="selectedYear" class="form-select" @change="loadData">
+                            <option v-for="y in years" :key="y" :value="y">{{ y }}年</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="tabs">
+                    <div class="tab" :class="{ active: activeTab === 'sample' }" @click="activeTab = 'sample'">
+                        样品测定量 <span v-if="sampleData.length">({{ sampleData.length }})</span>
+                    </div>
+                    <div class="tab" :class="{ active: activeTab === 'income' }" @click="activeTab = 'income'">
+                        收入 <span v-if="incomeData.length">({{ incomeData.length }})</span>
+                    </div>
+                    <div class="tab" :class="{ active: activeTab === 'critical' }" @click="activeTab = 'critical'">
+                        危急值 <span v-if="criticalData.length">({{ criticalData.length }})</span>
+                    </div>
+                </div>
+                
+                <!-- 统计卡片 -->
+                <div v-if="currentData.length > 0" class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-value">{{ currentData.length }}</div>
+                        <div class="stat-label">项目数量</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ formatNumber(totalSum) }}</div>
+                        <div class="stat-label">年度总计</div>
+                    </div>
+                </div>
+                
+                <div v-if="loading" class="loading">
+                    <i class="bi bi-arrow-clockwise"></i> 加载中...
+                </div>
+                
+                <template v-else>
+                    <!-- 样品测定量 -->
+                    <div v-if="activeTab === 'sample'">
+                        <div v-if="sampleData.length === 0" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <h3>暂无样品测定量数据</h3>
+                            <p>请先导入工作量数据</p>
+                        </div>
+                        <div v-else class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>项目名称</th>
+                                        <th class="num">1月</th><th class="num">2月</th><th class="num">3月</th>
+                                        <th class="num">4月</th><th class="num">5月</th><th class="num">6月</th>
+                                        <th class="num">7月</th><th class="num">8月</th><th class="num">9月</th>
+                                        <th class="num">10月</th><th class="num">11月</th><th class="num">12月</th>
+                                        <th class="num">合计</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="item in sampleData" :key="item.id">
+                                        <td>{{ item.project_name }}</td>
+                                        <td class="num">{{ item.month_1 || 0 }}</td>
+                                        <td class="num">{{ item.month_2 || 0 }}</td>
+                                        <td class="num">{{ item.month_3 || 0 }}</td>
+                                        <td class="num">{{ item.month_4 || 0 }}</td>
+                                        <td class="num">{{ item.month_5 || 0 }}</td>
+                                        <td class="num">{{ item.month_6 || 0 }}</td>
+                                        <td class="num">{{ item.month_7 || 0 }}</td>
+                                        <td class="num">{{ item.month_8 || 0 }}</td>
+                                        <td class="num">{{ item.month_9 || 0 }}</td>
+                                        <td class="num">{{ item.month_10 || 0 }}</td>
+                                        <td class="num">{{ item.month_11 || 0 }}</td>
+                                        <td class="num">{{ item.month_12 || 0 }}</td>
+                                        <td class="num total">{{ getTotal(item) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 收入数据 -->
+                    <div v-if="activeTab === 'income'">
+                        <div v-if="incomeData.length === 0" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <h3>暂无收入数据</h3>
+                            <p>请先导入工作量数据</p>
+                        </div>
+                        <div v-else class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>项目名称</th>
+                                        <th class="num">1月</th><th class="num">2月</th><th class="num">3月</th>
+                                        <th class="num">4月</th><th class="num">5月</th><th class="num">6月</th>
+                                        <th class="num">7月</th><th class="num">8月</th><th class="num">9月</th>
+                                        <th class="num">10月</th><th class="num">11月</th><th class="num">12月</th>
+                                        <th class="num">合计</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="item in incomeData" :key="item.id">
+                                        <td>{{ item.project_name }}</td>
+                                        <td class="num">{{ formatMoney(item.month_1) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_2) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_3) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_4) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_5) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_6) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_7) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_8) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_9) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_10) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_11) }}</td>
+                                        <td class="num">{{ formatMoney(item.month_12) }}</td>
+                                        <td class="num total">{{ formatMoney(getTotalFloat(item)) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 危急值数据 -->
+                    <div v-if="activeTab === 'critical'">
+                        <div v-if="criticalData.length === 0" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <h3>暂无危急值数据</h3>
+                            <p>请先导入工作量数据</p>
+                        </div>
+                        <div v-else class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>项目名称</th>
+                                        <th class="num">1月</th><th class="num">2月</th><th class="num">3月</th>
+                                        <th class="num">4月</th><th class="num">5月</th><th class="num">6月</th>
+                                        <th class="num">7月</th><th class="num">8月</th><th class="num">9月</th>
+                                        <th class="num">10月</th><th class="num">11月</th><th class="num">12月</th>
+                                        <th class="num">合计</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="item in criticalData" :key="item.id">
+                                        <td>{{ item.project_name }}</td>
+                                        <td class="num">{{ item.month_1 || 0 }}</td>
+                                        <td class="num">{{ item.month_2 || 0 }}</td>
+                                        <td class="num">{{ item.month_3 || 0 }}</td>
+                                        <td class="num">{{ item.month_4 || 0 }}</td>
+                                        <td class="num">{{ item.month_5 || 0 }}</td>
+                                        <td class="num">{{ item.month_6 || 0 }}</td>
+                                        <td class="num">{{ item.month_7 || 0 }}</td>
+                                        <td class="num">{{ item.month_8 || 0 }}</td>
+                                        <td class="num">{{ item.month_9 || 0 }}</td>
+                                        <td class="num">{{ item.month_10 || 0 }}</td>
+                                        <td class="num">{{ item.month_11 || 0 }}</td>
+                                        <td class="num">{{ item.month_12 || 0 }}</td>
+                                        <td class="num total">{{ getTotal(item) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        
+        createApp({
+            setup() {
+                const currentYear = new Date().getFullYear();
+                const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+                const selectedYear = ref(currentYear);
+                
+                const loading = ref(false);
+                const activeTab = ref('sample');
+                
+                const sampleData = ref([]);
+                const incomeData = ref([]);
+                const criticalData = ref([]);
+                
+                const toast = ref({ show: false, type: 'success', message: '' });
+                
+                const currentData = computed(() => {
+                    if (activeTab.value === 'sample') return sampleData.value;
+                    if (activeTab.value === 'income') return incomeData.value;
+                    return criticalData.value;
+                });
+                
+                const totalSum = computed(() => {
+                    let sum = 0;
+                    currentData.value.forEach(item => {
+                        if (activeTab.value === 'income') {
+                            sum += getTotalFloat(item);
+                        } else {
+                            sum += getTotal(item);
+                        }
+                    });
+                    return sum;
+                });
+                
+                const getTotal = (item) => {
+                    let total = 0;
+                    for (let i = 1; i <= 12; i++) {
+                        total += parseInt(item[`month_${i}`]) || 0;
+                    }
+                    return total;
+                };
+                
+                const getTotalFloat = (item) => {
+                    let total = 0;
+                    for (let i = 1; i <= 12; i++) {
+                        total += parseFloat(item[`month_${i}`]) || 0;
+                    }
+                    return total;
+                };
+                
+                const formatMoney = (value) => {
+                    if (!value) return '0.00';
+                    return parseFloat(value).toFixed(2);
+                };
+                
+                const formatNumber = (value) => {
+                    if (activeTab.value === 'income') {
+                        return formatMoney(value);
+                    }
+                    return value.toLocaleString();
+                };
+                
+                const loadData = async () => {
+                    loading.value = true;
+                    try {
+                        const res = await apiGet(`/api/workload/data?year=${selectedYear.value}`);
+                        if (res && res.ok) {
+                            const result = await res.json();
+                            if (result.success) {
+                                sampleData.value = result.data.sample || [];
+                                incomeData.value = result.data.income || [];
+                                criticalData.value = result.data.critical || [];
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+                
+                const goToImport = () => {
+                    // 通知父窗口切换页面
+                    if (window.parent && window.parent.loadPage) {
+                        window.parent.loadPage('workload-import');
+                    } else {
+                        window.parent.postMessage({ action: 'loadPage', page: 'workload-import' }, '*');
+                    }
+                };
+                
+                onMounted(loadData);
+                
+                return {
+                    years, selectedYear, loading, activeTab, toast,
+                    sampleData, incomeData, criticalData, currentData, totalSum,
+                    getTotal, getTotalFloat, formatMoney, formatNumber, loadData, goToImport
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

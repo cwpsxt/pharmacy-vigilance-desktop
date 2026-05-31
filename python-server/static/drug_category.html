@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>药物分类管理 - 药品不良反应数据分析系统</title>
+	<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { font-family: 'Microsoft YaHei', Arial, sans-serif; background-color: #f5f5f5; }
+
+		.header { background-color: #409EFF; color: white; padding: 0 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+		.header h1 { font-size: 20px; font-weight: normal; }
+		.header-right { display: flex; align-items: center; gap: 15px; }
+
+		.container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+		.page-title { font-size: 24px; color: #303133; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+		.page-title i { color: #409EFF; }
+
+		.toolbar { background: white; padding: 20px; border-radius: 4px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+		.toolbar-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+		.toolbar-left { display: flex; gap: 10px; flex-wrap: wrap; }
+
+		.table-container { background: white; padding: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+		.el-table { font-size: 13px; }
+		.el-table .el-table__header th { background-color: #fafafa; }
+
+		.pagination-container { margin-top: 20px; text-align: right; }
+
+		.dialog-footer { text-align: right; margin-top: 20px; }
+	</style>
+</head>
+<body>
+	<div id="app" v-cloak>
+		<!-- 顶部导航栏 -->
+		<div class="header">
+			<h1><i class="el-icon-s-shop"></i> 药品不良反应数据分析系统</h1>
+			<div class="header-right">
+				<span>管理员：{{ username }}</span>
+				<el-button type="text" style="color: white;" @click="goBack">返回后台</el-button>
+				<el-button type="text" style="color: white;" @click="logout">退出登录</el-button>
+			</div>
+		</div>
+
+		<div class="container">
+			<!-- 页面标题 -->
+			<div class="page-title">
+				<i class="el-icon-files"></i>
+				药物分类管理
+			</div>
+
+			<!-- 工具栏 -->
+			<div class="toolbar">
+				<div class="toolbar-row">
+					<div class="toolbar-left">
+						<el-input
+							v-model="searchKeyword"
+							placeholder="搜索药品名称或分类"
+							prefix-icon="el-icon-search"
+							style="width: 300px;"
+							clearable
+							@clear="loadDrugCategories"
+							@keyup.enter.native="searchDrugCategories">
+						</el-input>
+						<el-button type="primary" icon="el-icon-search" @click="searchDrugCategories">搜索</el-button>
+						<el-button icon="el-icon-refresh" @click="resetSearch">重置</el-button>
+					</div>
+					<div>
+						<el-upload
+							:action="uploadUrl"
+							:headers="uploadHeaders"
+							:on-success="handleUploadSuccess"
+							:on-error="handleUploadError"
+							:before-upload="beforeUpload"
+							:show-file-list="false"
+							accept=".xlsx,.xls">
+							<el-button type="success" icon="el-icon-upload2">导入Excel</el-button>
+						</el-upload>
+						<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">新增药物</el-button>
+						<el-button type="danger" icon="el-icon-delete" :disabled="selectedRows.length === 0" @click="batchDelete">批量删除</el-button>
+					</div>
+				</div>
+			</div>
+
+			<!-- 数据表格 -->
+			<div class="table-container">
+				<el-table
+					:data="tableData"
+					v-loading="loading"
+					stripe
+					border
+					@selection-change="handleSelectionChange"
+					style="width: 100%">
+					<el-table-column type="selection" width="55" align="center"></el-table-column>
+					<el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
+					<el-table-column prop="drug_name" label="药品名称" min-width="200" show-overflow-tooltip></el-table-column>
+					<el-table-column prop="drug_category" label="药品分类" min-width="150" show-overflow-tooltip></el-table-column>
+					<el-table-column prop="created_at" label="创建时间" width="180" align="center">
+						<template slot-scope="scope">
+							{{ formatDate(scope.row.created_at) }}
+						</template>
+					</el-table-column>
+					<el-table-column prop="updated_at" label="更新时间" width="180" align="center">
+						<template slot-scope="scope">
+							{{ formatDate(scope.row.updated_at) }}
+						</template>
+					</el-table-column>
+					<el-table-column label="操作" width="180" align="center" fixed="right">
+						<template slot-scope="scope">
+							<el-button type="text" size="small" icon="el-icon-edit" @click="handleEdit(scope.row)">编辑</el-button>
+							<el-button type="text" size="small" icon="el-icon-delete" style="color: #F56C6C;" @click="handleDelete(scope.row)">删除</el-button>
+						</template>
+					</el-table-column>
+				</el-table>
+
+				<!-- 分页 -->
+				<div class="pagination-container">
+					<el-pagination
+						@size-change="handleSizeChange"
+						@current-change="handleCurrentChange"
+						:current-page="pagination.page"
+						:page-sizes="[10, 20, 50, 100]"
+						:page-size="pagination.pageSize"
+						:total="pagination.total"
+						layout="total, sizes, prev, pager, next, jumper">
+					</el-pagination>
+				</div>
+			</div>
+		</div>
+
+		<!-- 新增/编辑对话框 -->
+		<el-dialog
+			:title="dialogTitle"
+			:visible.sync="dialogVisible"
+			width="500px"
+			:close-on-click-modal="false">
+			<el-form :model="formData" :rules="formRules" ref="drugForm" label-width="100px">
+				<el-form-item label="药品名称" prop="drug_name">
+					<el-input v-model="formData.drug_name" placeholder="请输入药品名称" clearable></el-input>
+				</el-form-item>
+				<el-form-item label="药品分类" prop="drug_category">
+					<el-input v-model="formData.drug_category" placeholder="请输入药品分类" clearable></el-input>
+				</el-form-item>
+			</el-form>
+			<div slot="footer" class="dialog-footer">
+				<el-button @click="dialogVisible = false">取消</el-button>
+				<el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
+			</div>
+		</el-dialog>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+	<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+	<script>
+		new Vue({
+			el: '#app',
+			data() {
+				return {
+					username: localStorage.getItem('username') || '管理员',
+					searchKeyword: '',
+					loading: false,
+					tableData: [],
+					selectedRows: [],
+					pagination: {
+						page: 1,
+						pageSize: 20,
+						total: 0
+					},
+					dialogVisible: false,
+					dialogTitle: '新增药物',
+					isEdit: false,
+					submitLoading: false,
+					formData: {
+						id: null,
+						drug_name: '',
+						drug_category: ''
+					},
+					formRules: {
+						drug_name: [
+							{ required: true, message: '请输入药品名称', trigger: 'blur' }
+						],
+						drug_category: [
+							{ required: true, message: '请输入药品分类', trigger: 'blur' }
+						]
+					},
+					uploadUrl: '/api/drug-category/import',
+					uploadHeaders: {}
+				};
+			},
+			mounted() {
+				// 配置axios支持cookie
+				axios.defaults.withCredentials = true;
+
+				// 检查登录状态
+				this.checkAuth();
+			},
+			methods: {
+				// 检查登录状态
+				async checkAuth() {
+					try {
+						const response = await axios.get('/api/auth/me');
+						if (!response.data.authenticated) {
+							this.$message.error('请先登录');
+							window.location.href = '/static/index.html';
+							return;
+						}
+						this.username = response.data.user.username;
+						this.loadDrugCategories();
+					} catch (error) {
+						this.$message.error('请先登录');
+						window.location.href = '/static/index.html';
+					}
+				},
+
+				// 加载药物分类数据
+				async loadDrugCategories() {
+					this.loading = true;
+					try {
+						const response = await axios.get('/api/drug-category', {
+							params: {
+								page: this.pagination.page,
+								pageSize: this.pagination.pageSize,
+								keyword: this.searchKeyword
+							}
+						});
+
+						if (response.data.code === 200) {
+							this.tableData = response.data.data.list;
+							this.pagination.total = response.data.data.total;
+						} else {
+							this.$message.error(response.data.message || '加载数据失败');
+						}
+					} catch (error) {
+						console.error('加载数据失败:', error);
+						this.$message.error('加载数据失败');
+					} finally {
+						this.loading = false;
+					}
+				},
+
+				// 搜索
+				searchDrugCategories() {
+					this.pagination.page = 1;
+					this.loadDrugCategories();
+				},
+
+				// 重置搜索
+				resetSearch() {
+					this.searchKeyword = '';
+					this.pagination.page = 1;
+					this.loadDrugCategories();
+				},
+
+				// 显示新增对话框
+				showAddDialog() {
+					this.dialogTitle = '新增药物';
+					this.isEdit = false;
+					this.formData = {
+						id: null,
+						drug_name: '',
+						drug_category: ''
+					};
+					this.dialogVisible = true;
+					this.$nextTick(() => {
+						this.$refs.drugForm.clearValidate();
+					});
+				},
+
+				// 编辑
+				handleEdit(row) {
+					this.dialogTitle = '编辑药物';
+					this.isEdit = true;
+					this.formData = {
+						id: row.id,
+						drug_name: row.drug_name,
+						drug_category: row.drug_category
+					};
+					this.dialogVisible = true;
+					this.$nextTick(() => {
+						this.$refs.drugForm.clearValidate();
+					});
+				},
+
+				// 提交表单
+				submitForm() {
+					this.$refs.drugForm.validate(async (valid) => {
+						if (valid) {
+							this.submitLoading = true;
+							try {
+								const url = this.isEdit ? `/api/drug-category/${this.formData.id}` : '/api/drug-category';
+								const method = this.isEdit ? 'put' : 'post';
+
+								const response = await axios[method](url, this.formData);
+
+								if (response.data.code === 200) {
+									this.$message.success(this.isEdit ? '修改成功' : '新增成功');
+									this.dialogVisible = false;
+									this.loadDrugCategories();
+								} else {
+									this.$message.error(response.data.message || '操作失败');
+								}
+							} catch (error) {
+								console.error('操作失败:', error);
+								this.$message.error('操作失败');
+							} finally {
+								this.submitLoading = false;
+							}
+						}
+					});
+				},
+
+				// 删除
+				handleDelete(row) {
+					this.$confirm('确定要删除该药物吗?', '提示', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'warning'
+					}).then(async () => {
+						try {
+							const response = await axios.delete(`/api/drug-category/${row.id}`);
+
+							if (response.data.code === 200) {
+								this.$message.success('删除成功');
+								this.loadDrugCategories();
+							} else {
+								this.$message.error(response.data.message || '删除失败');
+							}
+						} catch (error) {
+							console.error('删除失败:', error);
+							this.$message.error('删除失败');
+						}
+					}).catch(() => {});
+				},
+
+				// 批量删除
+				batchDelete() {
+					if (this.selectedRows.length === 0) {
+						this.$message.warning('请选择要删除的数据');
+						return;
+					}
+
+					this.$confirm(`确定要删除选中的 ${this.selectedRows.length} 条数据吗?`, '提示', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'warning'
+					}).then(async () => {
+						try {
+							const ids = this.selectedRows.map(row => row.id);
+							const response = await axios.delete('/api/drug-category/batch', {
+								data: { ids }
+							});
+
+							if (response.data.code === 200) {
+								this.$message.success('删除成功');
+								this.loadDrugCategories();
+							} else {
+								this.$message.error(response.data.message || '删除失败');
+							}
+						} catch (error) {
+							console.error('删除失败:', error);
+							this.$message.error('删除失败');
+						}
+					}).catch(() => {});
+				},
+
+				// 表格选择变化
+				handleSelectionChange(selection) {
+					this.selectedRows = selection;
+				},
+
+				// Excel导入成功
+				handleUploadSuccess(response) {
+					if (response.code === 200) {
+						this.$message.success(`导入成功，共导入 ${response.data.count} 条数据`);
+						this.loadDrugCategories();
+					} else {
+						this.$message.error(response.message || '导入失败');
+					}
+				},
+
+				// Excel导入失败
+				handleUploadError(error) {
+					console.error('上传失败:', error);
+					this.$message.error('上传失败');
+				},
+
+				// 上传前校验
+				beforeUpload(file) {
+					const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+									file.type === 'application/vnd.ms-excel';
+					if (!isExcel) {
+						this.$message.error('只能上传 Excel 文件！');
+					}
+					return isExcel;
+				},
+
+				// 分页 - 每页条数变化
+				handleSizeChange(val) {
+					this.pagination.pageSize = val;
+					this.pagination.page = 1;
+					this.loadDrugCategories();
+				},
+
+				// 分页 - 页码变化
+				handleCurrentChange(val) {
+					this.pagination.page = val;
+					this.loadDrugCategories();
+				},
+
+				// 格式化日期
+				formatDate(date) {
+					if (!date) return '-';
+					const d = new Date(date);
+					const year = d.getFullYear();
+					const month = String(d.getMonth() + 1).padStart(2, '0');
+					const day = String(d.getDate()).padStart(2, '0');
+					const hour = String(d.getHours()).padStart(2, '0');
+					const minute = String(d.getMinutes()).padStart(2, '0');
+					const second = String(d.getSeconds()).padStart(2, '0');
+					return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+				},
+
+				// 返回后台
+				goBack() {
+					window.location.href = '/static/admin.html';
+				},
+
+				// 退出登录
+				async logout() {
+					this.$confirm('确定要退出登录吗?', '提示', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'warning'
+					}).then(async () => {
+						try {
+							await axios.post('/api/auth/logout');
+							this.$message.success('已退出登录');
+							window.location.href = '/static/index.html';
+						} catch (error) {
+							window.location.href = '/static/index.html';
+						}
+					}).catch(() => {});
+				}
+			}
+		});
+	</script>
+</body>
+</html>

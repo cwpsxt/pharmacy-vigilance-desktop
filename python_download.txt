@@ -1,0 +1,30 @@
+Python 3.11.9 Windows 安装包下载地址
+============================================
+
+【官方下载（推荐 64 位）】
+https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
+
+【32 位（老旧系统）】
+https://www.python.org/ftp/python/3.11.9/python-3.11.9.exe
+
+【ARM64（Surface Pro X）】
+https://www.python.org/ftp/python/3.11.9/python-3.11.9-arm64.exe
+
+【国内镜像（华为云，下载更快）】
+https://mirrors.huaweicloud.com/python/3.11.9/python-3.11.9-amd64.exe
+
+
+==========  安装注意事项（很重要）==========
+
+1. 双击运行 python-3.11.9-amd64.exe
+2. 【第一屏底部勾选 ☑ Add python.exe to PATH】
+3. 点击 "Install Now" 默认安装
+4. 安装完成后打开 cmd 验证：
+       python --version
+   显示 Python 3.11.9 即成功
+
+
+==========  Node.js 下载地址  ==========
+
+https://nodejs.org/zh-cn/download
+请选择 LTS（长期支持版），Windows Installer (.msi) 64-bit

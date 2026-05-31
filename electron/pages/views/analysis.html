@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; padding: 20px; }
+        
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .page-title { font-size: 22px; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 10px; }
+        .page-title i { color: #1890ff; }
+        
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; overflow: hidden; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .card-title { font-size: 15px; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px; }
+        .card-title i { color: #1890ff; }
+        .card-body { padding: 20px; }
+        
+        .filter-bar { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-item { display: flex; flex-direction: column; gap: 6px; }
+        .filter-item label { font-size: 13px; color: #666; font-weight: 500; }
+        .filter-item input, .filter-item select { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; }
+        .filter-item input:focus, .filter-item select:focus { outline: none; border-color: #1890ff; }
+        
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-primary:hover { background: #096dd9; }
+        .btn-success { background: #52c41a; color: white; }
+        .btn-success:hover { background: #389e0d; }
+        .btn-secondary { background: #f0f0f0; color: #666; }
+        .btn-secondary:hover { background: #e0e0e0; }
+        
+        .tabs { display: flex; gap: 0; border-bottom: 2px solid #f0f0f0; margin-bottom: 20px; overflow-x: auto; }
+        .tab-item { padding: 12px 16px; font-size: 13px; color: #666; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; white-space: nowrap; }
+        .tab-item:hover { color: #1890ff; }
+        .tab-item.active { color: #1890ff; border-bottom-color: #1890ff; font-weight: 500; }
+        
+        .view-toggle { display: flex; gap: 4px; background: #f5f5f5; padding: 4px; border-radius: 8px; }
+        .view-btn { padding: 6px 12px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 12px; color: #666; display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+        .view-btn.active { background: white; color: #1890ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-radius: 10px; padding: 16px 20px; border-left: 4px solid #1890ff; }
+        .stat-card.danger { border-left-color: #ff4d4f; }
+        .stat-card.success { border-left-color: #52c41a; }
+        .stat-card.warning { border-left-color: #faad14; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #1f2937; }
+        .stat-label { font-size: 13px; color: #666; margin-top: 4px; }
+        
+        .table-container { overflow-x: auto; max-height: 500px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { background: #fafafa; padding: 12px 16px; text-align: left; font-weight: 600; color: #333; border-bottom: 1px solid #e8e8e8; position: sticky; top: 0; z-index: 1; }
+        .data-table td { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; color: #666; }
+        .data-table tbody tr:hover { background: #fafafa; }
+        .data-table .subtotal { background: #f0f9ff !important; font-weight: 500; }
+        .data-table .total { background: #e8f5e8 !important; font-weight: 600; }
+        
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        .tag-danger { background: #fff2f0; color: #ff4d4f; }
+        .tag-success { background: #f6ffed; color: #52c41a; }
+        .tag-warning { background: #fffbe6; color: #faad14; }
+        
+        .chart-container { height: 400px; position: relative; }
+        .chart-actions { position: absolute; top: 10px; right: 10px; z-index: 10; }
+        .chart-action-btn { padding: 6px 12px; background: rgba(255,255,255,0.9); border: 1px solid #e0e0e0; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #666; }
+        .chart-action-btn:hover { background: white; border-color: #1890ff; color: #1890ff; }
+        
+        .loading { display: flex; justify-content: center; padding: 60px; }
+        .spinner { width: 36px; height: 36px; border: 3px solid #f0f0f0; border-top-color: #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; color: #d9d9d9; }
+        .empty-state h3 { font-size: 16px; color: #666; margin-bottom: 8px; }
+        
+        .reward-rule { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #ad6800; }
+        
+        .row { display: flex; gap: 20px; margin-bottom: 20px; }
+        
+        /* 导出进度弹窗样式 */
+        .export-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .export-modal-content { background: white; border-radius: 12px; padding: 30px 40px; text-align: center; min-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .export-modal-title { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .export-modal-title i { color: #1890ff; }
+        .export-progress-bar { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .export-progress-fill { height: 100%; background: linear-gradient(90deg, #1890ff, #52c41a); border-radius: 4px; transition: width 0.3s ease; }
+        .export-progress-text { font-size: 13px; color: #666; }
+        .export-steps { text-align: left; margin-top: 16px; font-size: 12px; color: #999; }
+        .export-step { padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+        .export-step.active { color: #1890ff; }
+        .export-step.done { color: #52c41a; }
+        .export-step i { font-size: 14px; }
+        .col-6 { flex: 1; }
+        .col-8 { flex: 2; }
+        .col-4 { flex: 1; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 导出进度弹窗 -->
+        <div class="export-modal" v-if="exportProgress.show">
+            <div class="export-modal-content">
+                <div class="export-modal-title">
+                    <i class="bi bi-file-earmark-excel"></i> 正在导出数据
+                </div>
+                <div class="export-progress-bar">
+                    <div class="export-progress-fill" :style="{ width: exportProgress.percent + '%' }"></div>
+                </div>
+                <div class="export-progress-text">{{ exportProgress.text }}</div>
+                <div class="export-steps">
+                    <div class="export-step" :class="{ active: exportProgress.step === 1, done: exportProgress.step > 1 }">
+                        <i :class="exportProgress.step > 1 ? 'bi bi-check-circle-fill' : 'bi bi-circle'"></i> 准备数据...
+                    </div>
+                    <div class="export-step" :class="{ active: exportProgress.step === 2, done: exportProgress.step > 2 }">
+                        <i :class="exportProgress.step > 2 ? 'bi bi-check-circle-fill' : 'bi bi-circle'"></i> 生成图表...
+                    </div>
+                    <div class="export-step" :class="{ active: exportProgress.step === 3, done: exportProgress.step > 3 }">
+                        <i :class="exportProgress.step > 3 ? 'bi bi-check-circle-fill' : 'bi bi-circle'"></i> 打包Excel文件...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <h1 class="page-title"><i class="bi bi-graph-up-arrow"></i> 统计分析</h1>
+        </div>
+
+        <!-- 筛选条件 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-sliders"></i> 筛选条件</div>
+            </div>
+            <div class="card-body">
+                <div class="filter-bar">
+                    <div class="filter-item">
+                        <label>起始月份</label>
+                        <input type="month" v-model="filter.startMonth">
+                    </div>
+                    <div class="filter-item">
+                        <label>结束月份</label>
+                        <input type="month" v-model="filter.endMonth">
+                    </div>
+                    <button class="btn btn-primary" @click="analyze"><i class="bi bi-search"></i> 查询分析</button>
+                    <button class="btn btn-secondary" @click="resetFilters"><i class="bi bi-arrow-clockwise"></i> 重置</button>
+                    <button class="btn btn-success" @click="exportAll"><i class="bi bi-file-earmark-excel"></i> 合并导出所有数据</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据展示 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-clipboard-data"></i> 统计结果</div>
+                <div class="view-toggle" v-if="hasData && (tab === 'statistics' || tab === 'drug-summary' || tab === 'report-details' || tab === 'reward')">
+                    <button class="view-btn" :class="{ active: viewMode === 'table' }" @click="viewMode = 'table'">
+                        <i class="bi bi-table"></i> 表格
+                    </button>
+                    <button class="view-btn" :class="{ active: viewMode === 'chart' }" @click="tab === 'report-details' ? switchToReportChart() : tab === 'reward' ? switchToRewardChart() : switchToChart()">
+                        <i class="bi bi-bar-chart"></i> 图表
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab-item" :class="{ active: tab === 'all' }" @click="switchTab('all')">全部数据</div>
+                    <div class="tab-item" :class="{ active: tab === 'deduplicated' }" @click="switchTab('deduplicated')">去重数据</div>
+                    <div class="tab-item" :class="{ active: tab === 'statistics' }" @click="switchTab('statistics')">类型统计</div>
+                    <div class="tab-item" :class="{ active: tab === 'report-details' }" @click="switchTab('report-details')">上报明细-全院</div>
+                    <div class="tab-item" :class="{ active: tab === 'reward' }" @click="switchTab('reward')">奖励计算-药学</div>
+                    <div class="tab-item" :class="{ active: tab === 'drug-summary' }" @click="switchTab('drug-summary')">发生不良反应的药品汇总</div>
+                </div>
+
+                <div v-if="loading" class="loading"><div class="spinner"></div></div>
+                
+                <div v-else-if="!hasData" class="empty-state">
+                    <i class="bi bi-graph-up"></i>
+                    <h3>选择参数后点击查询分析</h3>
+                    <p>设置月份范围后进行数据分析</p>
+                </div>
+
+                <!-- 全部数据 -->
+                <div v-else-if="tab === 'all'">
+                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>共找到 <strong>{{ allData.total || 0 }}</strong> 条记录</span>
+                        <button class="btn btn-success" @click="exportTab('all')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>报告编码</th>
+                                    <th>报告类型-新的</th>
+                                    <th>严重程度</th>
+                                    <th>病历号</th>
+                                    <th>怀疑/并用</th>
+                                    <th>通用名称</th>
+                                    <th>生产厂家</th>
+                                    <th>不良反应名称</th>
+                                    <th>报告人职业</th>
+                                    <th>报告人</th>
+                                    <th>接收时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="item in allData.reports" :key="item.id">
+                                    <td>{{ item.report_code }}</td>
+                                    <td>{{ item.report_type_new || '-' }}</td>
+                                    <td><span class="tag" :class="item.severity === '严重' ? 'tag-danger' : 'tag-success'">{{ item.severity }}</span></td>
+                                    <td>{{ item.medical_record_no }}</td>
+                                    <td><span class="tag" :class="item.suspect_concurrent === '怀疑' ? 'tag-warning' : 'tag-success'">{{ item.suspect_concurrent }}</span></td>
+                                    <td>{{ item.generic_name }}</td>
+                                    <td>{{ item.manufacturer }}</td>
+                                    <td>{{ item.adverse_reaction_name }}</td>
+                                    <td>{{ item.reporter_profession }}</td>
+                                    <td>{{ item.reporter_signature }}</td>
+                                    <td>{{ formatDate(item.national_center_receive_time) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 去重数据 -->
+                <div v-else-if="tab === 'deduplicated'">
+                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>去重后共 <strong>{{ deduplicatedData.total || 0 }}</strong> 条记录（已过滤"并用"数据，仅保留"怀疑"数据，并按报告编码去重）</span>
+                        <button class="btn btn-success" @click="exportTab('deduplicated')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>报告编码</th>
+                                    <th>报告类型-新的</th>
+                                    <th>严重程度</th>
+                                    <th>病历号</th>
+                                    <th>怀疑/并用</th>
+                                    <th>通用名称</th>
+                                    <th>生产厂家</th>
+                                    <th>不良反应名称</th>
+                                    <th>报告人职业</th>
+                                    <th>报告人</th>
+                                    <th>接收时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="item in deduplicatedData.reports" :key="item.id">
+                                    <td>{{ item.report_code }}</td>
+                                    <td>{{ item.report_type_new || '-' }}</td>
+                                    <td><span class="tag" :class="item.severity === '严重' ? 'tag-danger' : 'tag-success'">{{ item.severity }}</span></td>
+                                    <td>{{ item.medical_record_no }}</td>
+                                    <td><span class="tag tag-warning">{{ item.suspect_concurrent }}</span></td>
+                                    <td>{{ item.generic_name }}</td>
+                                    <td>{{ item.manufacturer }}</td>
+                                    <td>{{ item.adverse_reaction_name }}</td>
+                                    <td>{{ item.reporter_profession }}</td>
+                                    <td>{{ item.reporter_signature }}</td>
+                                    <td>{{ formatDate(item.national_center_receive_time) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 类型统计 -->
+                <div v-else-if="tab === 'statistics'">
+                    <div style="margin-bottom: 12px; text-align: right;">
+                        <button class="btn btn-success" @click="exportTab('statistics')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+                    
+                    <!-- 统计卡片 -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">{{ statisticsData.total_count || 0 }}</div>
+                            <div class="stat-label">总数（去重）</div>
+                        </div>
+                        <div class="stat-card danger">
+                            <div class="stat-value">{{ getSeverityCount('严重') }}</div>
+                            <div class="stat-label">严重</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value">{{ getSeverityCount('一般') }}</div>
+                            <div class="stat-label">一般</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value">{{ getNewCount() }}</div>
+                            <div class="stat-label">新的报告</div>
+                        </div>
+                    </div>
+
+                    <!-- 表格视图 -->
+                    <div v-if="viewMode === 'table'">
+                        <div class="row">
+                            <div class="col-6">
+                                <h4 style="margin-bottom: 12px; font-size: 14px; color: #333;">类型统计</h4>
+                                <div class="table-container" style="max-height: 300px;">
+                                    <table class="data-table">
+                                        <thead><tr><th>报告类型</th><th>数量</th><th>占比(%)</th><th style="width: 200px;">比例图</th></tr></thead>
+                                        <tbody>
+                                            <tr v-for="item in statisticsData.severity_stats" :key="item.type">
+                                                <td>{{ item.type }}</td>
+                                                <td>{{ item.count }}</td>
+                                                <td>{{ item.percentage }}%</td>
+                                                <td>
+                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                        <div :style="{
+                                                            width: item.percentage + '%',
+                                                            minWidth: '20px',
+                                                            height: '18px',
+                                                            borderRadius: '3px',
+                                                            background: item.type === '一般' ? 'linear-gradient(90deg, #67C23A, #85CE61)' :
+                                                                       item.type === '严重' ? 'linear-gradient(90deg, #F56C6C, #F78989)' :
+                                                                       item.type === '新的+一般' ? 'linear-gradient(90deg, #409EFF, #66B1FF)' :
+                                                                       'linear-gradient(90deg, #E6A23C, #EEBC6C)'
+                                                        }"></div>
+                                                        <span style="font-size: 12px; color: #666;">{{ item.percentage }}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <h4 style="margin-bottom: 12px; font-size: 14px; color: #333;">月度统计</h4>
+                                <div class="table-container" style="max-height: 300px;">
+                                    <table class="data-table">
+                                        <thead><tr><th>月份</th><th>一般</th><th>严重</th><th>新的+一般</th><th>新的+严重</th></tr></thead>
+                                        <tbody>
+                                            <tr v-for="item in statisticsData.month_stats" :key="item.month">
+                                                <td>{{ item.month }}</td>
+                                                <td>{{ item['一般'] || 0 }}</td>
+                                                <td>{{ item['严重'] || 0 }}</td>
+                                                <td>{{ item['新的+一般'] || 0 }}</td>
+                                                <td>{{ item['新的+严重'] || 0 }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 图表视图 -->
+                    <div v-else>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('severityChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="severityChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('monthChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="monthChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 上报明细-全院 -->
+                <div v-else-if="tab === 'report-details'">
+                    <div style="margin-bottom: 12px; text-align: right;">
+                        <button class="btn btn-success" @click="exportTab('report-details')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+                    
+                    <!-- 表格视图 -->
+                    <div v-if="viewMode === 'table'" class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>科室</th>
+                                    <th>职业</th>
+                                    <th>姓名</th>
+                                    <th>总计</th>
+                                    <th>一般</th>
+                                    <th>严重</th>
+                                    <th>新的一般</th>
+                                    <th>新的严重</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, idx) in reportDetailsWithSummary" :key="idx" 
+                                    :style="{
+                                        backgroundColor: item.isTotal ? '#e6f7ff' : item.isSubtotal ? '#fafafa' : '',
+                                        fontWeight: item.isTotal || item.isSubtotal ? 'bold' : 'normal'
+                                    }">
+                                    <td>{{ item.department }}</td>
+                                    <td>{{ item.profession }}</td>
+                                    <td>{{ item.reporter_name }}</td>
+                                    <td><strong>{{ item.total || 0 }}</strong></td>
+                                    <td>{{ item['一般'] || 0 }}</td>
+                                    <td style="color: #ff4d4f;">{{ item['严重'] || 0 }}</td>
+                                    <td style="color: #1890ff;">{{ item['新的_一般'] || 0 }}</td>
+                                    <td style="color: #faad14;">{{ item['新的_严重'] || 0 }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 图表视图 -->
+                    <div v-else>
+                        <div class="row" style="margin-bottom: 20px;">
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('deptRankChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="deptRankChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('reportTypeChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="reportTypeChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('deptStackChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="deptStackChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('reporterTop10Chart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="reporterTop10Chart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 奖励计算-药学 -->
+                <div v-else-if="tab === 'reward'">
+                    <div class="reward-rule">
+                        <strong>奖励计算规则：</strong>药师-一般50元/例，严重70元/例，新的一般100元/例，新的严重150元/例（各类型分别进行阶梯式计算）；非药师-300元/例（不进行阶梯计算）
+                    </div>
+                    <div style="margin-bottom: 12px; text-align: right;">
+                        <button class="btn btn-success" @click="exportTab('reward-calculation')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+                    
+                    <!-- 表格视图 -->
+                    <div v-if="viewMode === 'table'" class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>科室</th>
+                                    <th>职业</th>
+                                    <th>姓名</th>
+                                    <th>一般</th>
+                                    <th>奖励/元</th>
+                                    <th>严重</th>
+                                    <th>奖励/元</th>
+                                    <th>新的一般</th>
+                                    <th>奖励/元</th>
+                                    <th>新的严重</th>
+                                    <th>奖励/元</th>
+                                    <th>个人奖励合计</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, idx) in rewardData.reward_details" :key="idx"
+                                    :class="{ subtotal: item.isSubtotal, total: item.isTotal }">
+                                    <td>{{ item.department }}</td>
+                                    <td>{{ item.profession }}</td>
+                                    <td>{{ item.reporter_name }}</td>
+                                    <td>{{ item['一般'] || 0 }}</td>
+                                    <td style="color: #52c41a;">{{ item['奖励_一般'] || 0 }}</td>
+                                    <td style="color: #ff4d4f;">{{ item['严重'] || 0 }}</td>
+                                    <td style="color: #ff4d4f;">{{ item['奖励_严重'] || 0 }}</td>
+                                    <td style="color: #1890ff;">{{ item['新的_一般'] || 0 }}</td>
+                                    <td style="color: #1890ff;">{{ item['奖励_新的一般'] || 0 }}</td>
+                                    <td style="color: #faad14;">{{ item['新的_严重'] || 0 }}</td>
+                                    <td style="color: #faad14;">{{ item['奖励_新的严重'] || 0 }}</td>
+                                    <td><strong style="color: #e6a23c; font-size: 15px;">¥{{ item['个人奖励合计'] || 0 }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 图表视图 -->
+                    <div v-else>
+                        <div class="row" style="margin-bottom: 20px;">
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('rewardTop10Chart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="rewardTop10Chart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('rewardTypeChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="rewardTypeChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('deptRewardChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="deptRewardChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="chart-container">
+                                    <div class="chart-actions">
+                                        <button class="chart-action-btn" @click="downloadChart('deptRewardStackChart')"><i class="bi bi-download"></i> 下载</button>
+                                    </div>
+                                    <div id="deptRewardStackChart" style="width: 100%; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 药品汇总 -->
+                <div v-else-if="tab === 'drug-summary'">
+                    <div style="margin-bottom: 12px; text-align: right;">
+                        <button class="btn btn-success" @click="exportTab('drug-summary')"><i class="bi bi-download"></i> 导出Excel</button>
+                    </div>
+
+                    <!-- 表格视图 -->
+                    <div v-if="viewMode === 'table'">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>通用名称</th>
+                                        <th>生产厂家</th>
+                                        <th>严重</th>
+                                        <th>一般</th>
+                                        <th>合计</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(item, idx) in drugSummaryData.drug_summary" :key="idx"
+                                        :class="{ total: item.isTotal }">
+                                        <td>{{ item.isTotal ? '' : (idx + 1) }}</td>
+                                        <td>{{ item.drug_name }}</td>
+                                        <td>{{ item.manufacturer }}</td>
+                                        <td style="color: #ff4d4f;">{{ item['严重'] || 0 }}</td>
+                                        <td>{{ item['一般'] || 0 }}</td>
+                                        <td><strong style="color: #e6a23c;">{{ item.total || 0 }}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 图表视图 -->
+                    <div v-else>
+                        <div style="margin-bottom: 12px; display: flex; justify-content: center; gap: 10px;">
+                            <button class="btn" :class="{ 'btn-primary': drugChartType === 'bar', 'btn-outline': drugChartType !== 'bar' }" @click="switchDrugChart('bar')">
+                                <i class="bi bi-bar-chart-fill"></i> 柱状图
+                            </button>
+                            <button class="btn" :class="{ 'btn-primary': drugChartType === 'pie', 'btn-outline': drugChartType !== 'pie' }" @click="switchDrugChart('pie')">
+                                <i class="bi bi-pie-chart-fill"></i> 饼状图
+                            </button>
+                        </div>
+                        <div class="chart-container" style="height: 450px;">
+                            <div class="chart-actions">
+                                <button class="chart-action-btn" @click="downloadChart(drugChartType === 'bar' ? 'drugBarChart' : 'drugPieChart')"><i class="bi bi-download"></i> 下载</button>
+                            </div>
+                            <div v-show="drugChartType === 'bar'" id="drugBarChart" style="width: 100%; height: 100%;"></div>
+                            <div v-show="drugChartType === 'pie'" id="drugPieChart" style="width: 100%; height: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../../libs/echarts/echarts.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, computed, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const tab = ref('all');
+                const viewMode = ref('table');
+                const filter = ref({ startMonth: '', endMonth: '' });
+                const loading = ref(false);
+                
+                // 导出进度状态
+                const exportProgress = ref({
+                    show: false,
+                    percent: 0,
+                    text: '',
+                    step: 0
+                });
+                
+                // 各tab数据
+                const allData = ref({ total: 0, reports: [] });
+                const deduplicatedData = ref({ total: 0, reports: [] });
+                const statisticsData = ref({});
+                const reportDetailsData = ref({ report_details: [] });
+                const rewardData = ref({ reward_details: [] });
+                const drugSummaryData = ref({ drug_summary: [] });
+                
+                // 图表实例
+                let charts = {};
+                const drugChartType = ref('bar');
+
+                const hasData = computed(() => allData.value.total > 0 || deduplicatedData.value.total > 0);
+
+                // 上报明细带小计和合计
+                const reportDetailsWithSummary = computed(() => {
+                    const details = reportDetailsData.value.report_details || [];
+                    if (details.length === 0) return [];
+                    
+                    const result = [];
+                    const grandTotal = { total: 0, '一般': 0, '严重': 0, '新的_一般': 0, '新的_严重': 0 };
+                    let currentDept = null;
+                    let deptItems = [];
+                    
+                    // 按科室分组
+                    details.forEach((item, idx) => {
+                        if (currentDept !== item.department) {
+                            // 添加上一个科室的小计
+                            if (currentDept !== null && deptItems.length > 0) {
+                                const subtotal = { 
+                                    department: currentDept + ' 小计', 
+                                    profession: '', 
+                                    reporter_name: '',
+                                    total: 0, '一般': 0, '严重': 0, '新的_一般': 0, '新的_严重': 0,
+                                    isSubtotal: true 
+                                };
+                                deptItems.forEach(d => {
+                                    subtotal.total += (d.total || 0);
+                                    subtotal['一般'] += (d['一般'] || 0);
+                                    subtotal['严重'] += (d['严重'] || 0);
+                                    subtotal['新的_一般'] += (d['新的_一般'] || 0);
+                                    subtotal['新的_严重'] += (d['新的_严重'] || 0);
+                                });
+                                result.push(subtotal);
+                            }
+                            currentDept = item.department;
+                            deptItems = [];
+                        }
+                        result.push(item);
+                        deptItems.push(item);
+                        
+                        // 累加到总计
+                        grandTotal.total += (item.total || 0);
+                        grandTotal['一般'] += (item['一般'] || 0);
+                        grandTotal['严重'] += (item['严重'] || 0);
+                        grandTotal['新的_一般'] += (item['新的_一般'] || 0);
+                        grandTotal['新的_严重'] += (item['新的_严重'] || 0);
+                    });
+                    
+                    // 添加最后一个科室的小计
+                    if (currentDept !== null && deptItems.length > 0) {
+                        const subtotal = { 
+                            department: currentDept + ' 小计', 
+                            profession: '', 
+                            reporter_name: '',
+                            total: 0, '一般': 0, '严重': 0, '新的_一般': 0, '新的_严重': 0,
+                            isSubtotal: true 
+                        };
+                        deptItems.forEach(d => {
+                            subtotal.total += (d.total || 0);
+                            subtotal['一般'] += (d['一般'] || 0);
+                            subtotal['严重'] += (d['严重'] || 0);
+                            subtotal['新的_一般'] += (d['新的_一般'] || 0);
+                            subtotal['新的_严重'] += (d['新的_严重'] || 0);
+                        });
+                        result.push(subtotal);
+                    }
+                    
+                    // 添加最终合计
+                    result.push({
+                        department: '合计',
+                        profession: '',
+                        reporter_name: '',
+                        ...grandTotal,
+                        isTotal: true
+                    });
+                    
+                    return result;
+                });
+
+                const getSeverityCount = (type) => {
+                    const item = (statisticsData.value.severity_stats || []).find(s => s.type === type);
+                    return item ? item.count : 0;
+                };
+                
+                const getNewCount = () => {
+                    const stats = statisticsData.value.severity_stats || [];
+                    let count = 0;
+                    stats.forEach(s => {
+                        if (s.type && s.type.includes('新的')) count += s.count;
+                    });
+                    return count;
+                };
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    return dateStr.split('T')[0];
+                };
+
+                const analyze = async () => {
+                    loading.value = true;
+                    const params = new URLSearchParams(filter.value);
+                    try {
+                        const [allRes, dedupRes, statsRes, detailsRes, rewardRes, drugRes] = await Promise.all([
+                            apiGet(`/api/data/analysis/data?${params}`),
+                            apiGet(`/api/data/analysis/deduplicated?${params}`),
+                            apiGet(`/api/data/analysis/statistics?${params}`),
+                            apiGet(`/api/data/analysis/report-details?${params}`),
+                            apiGet(`/api/data/analysis/reward-calculation?${params}`),
+                            apiGet(`/api/data/analysis/drug-summary?${params}`)
+                        ]);
+                        
+                        if (allRes && allRes.ok) allData.value = await allRes.json();
+                        if (dedupRes && dedupRes.ok) deduplicatedData.value = await dedupRes.json();
+                        if (statsRes && statsRes.ok) statisticsData.value = await statsRes.json();
+                        if (detailsRes && detailsRes.ok) reportDetailsData.value = await detailsRes.json();
+                        if (rewardRes && rewardRes.ok) rewardData.value = await rewardRes.json();
+                        if (drugRes && drugRes.ok) {
+                            const drugData = await drugRes.json();
+                            // 后端直接返回数组，需要包装成对象
+                            drugSummaryData.value = { drug_summary: Array.isArray(drugData) ? drugData : (drugData.drug_summary || []) };
+                        }
+                        
+                        if (viewMode.value === 'chart') {
+                            nextTick(() => renderCharts());
+                        }
+                    } catch (e) { console.error(e); }
+                    finally { loading.value = false; }
+                };
+
+                const resetFilters = () => {
+                    filter.value = { startMonth: '', endMonth: '' };
+                };
+
+                const exportAll = async () => {
+                    // 显示进度弹窗
+                    exportProgress.value = { show: true, percent: 0, text: '正在准备数据...', step: 1 };
+                    
+                    // 模拟进度更新
+                    const updateProgress = (step, percent, text) => {
+                        exportProgress.value = { show: true, step, percent, text };
+                    };
+                    
+                    try {
+                        const params = new URLSearchParams(filter.value);
+                        const url = `${API_BASE}/api/data/analysis/export-all-tabs?${params}&token=${getToken()}`;
+                        
+                        // 进度动画
+                        updateProgress(1, 15, '正在准备数据...');
+                        await new Promise(r => setTimeout(r, 500));
+                        updateProgress(2, 30, '正在生成图表（首次可能需要10秒）...');
+                        
+                        // 使用fetch获取文件
+                        const response = await fetch(url);
+                        
+                        updateProgress(2, 70, '图表生成完成...');
+                        await new Promise(r => setTimeout(r, 300));
+                        updateProgress(3, 85, '正在打包Excel文件...');
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            updateProgress(3, 95, '准备下载...');
+                            
+                            // 获取文件名
+                            const contentDisposition = response.headers.get('content-disposition');
+                            let filename = '导出数据.xlsx';
+                            if (contentDisposition) {
+                                const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;\n"']+)/i);
+                                if (match) filename = decodeURIComponent(match[1]);
+                            }
+                            
+                            // 触发下载
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = downloadUrl;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(downloadUrl);
+                            
+                            updateProgress(4, 100, '导出完成！');
+                            await new Promise(r => setTimeout(r, 800));
+                        } else {
+                            alert('导出失败，请重试');
+                        }
+                    } catch (e) {
+                        console.error('导出失败:', e);
+                        alert('导出失败: ' + e.message);
+                    } finally {
+                        exportProgress.value.show = false;
+                    }
+                };
+
+                const exportTab = (tabName) => {
+                    const params = new URLSearchParams(filter.value);
+                    let url = '';
+                    switch(tabName) {
+                        case 'all':
+                            url = `${API_BASE}/api/data/analysis/export?${params}&type=all&token=${getToken()}`;
+                            break;
+                        case 'deduplicated':
+                            url = `${API_BASE}/api/data/analysis/export?${params}&type=deduplicated&token=${getToken()}`;
+                            break;
+                        case 'statistics':
+                            url = `${API_BASE}/api/data/analysis/export-statistics?${params}&token=${getToken()}`;
+                            break;
+                        case 'report-details':
+                            url = `${API_BASE}/api/data/analysis/export-report-details?${params}&token=${getToken()}`;
+                            break;
+                        case 'reward-calculation':
+                            url = `${API_BASE}/api/data/analysis/export-reward-calculation?${params}&token=${getToken()}`;
+                            break;
+                        case 'drug-summary':
+                            url = `${API_BASE}/api/data/analysis/export-drug-summary?${params}&token=${getToken()}`;
+                            break;
+                    }
+                    if (url) {
+                        // 使用隐藏iframe下载，避免弹出空白窗口
+                        let iframe = document.getElementById('download-iframe');
+                        if (!iframe) {
+                            iframe = document.createElement('iframe');
+                            iframe.id = 'download-iframe';
+                            iframe.style.display = 'none';
+                            document.body.appendChild(iframe);
+                        }
+                        iframe.src = url;
+                    }
+                };
+
+                const switchTab = (newTab) => {
+                    tab.value = newTab;
+                    viewMode.value = 'table';
+                };
+
+                const switchToChart = () => {
+                    viewMode.value = 'chart';
+                    if (hasData.value) {
+                        nextTick(() => renderCharts());
+                    }
+                };
+                
+                const switchToReportChart = () => {
+                    viewMode.value = 'chart';
+                    nextTick(() => renderReportCharts());
+                };
+                
+                const switchToRewardChart = () => {
+                    viewMode.value = 'chart';
+                    nextTick(() => renderRewardCharts());
+                };
+                
+                const switchDrugChart = (type) => {
+                    drugChartType.value = type;
+                    nextTick(() => {
+                        if (type === 'bar') renderDrugBarChart();
+                        else renderDrugPieChart();
+                    });
+                };
+
+                const renderCharts = () => {
+                    if (tab.value === 'statistics') {
+                        renderSeverityChart();
+                        renderMonthChart();
+                    } else if (tab.value === 'drug-summary') {
+                        renderDrugBarChart();
+                        renderDrugPieChart();
+                    }
+                };
+                
+                // 上报明细图表渲染
+                const renderReportCharts = () => {
+                    renderDeptRankChart();
+                    renderReportTypeChart();
+                    renderDeptStackChart();
+                    renderReporterTop10Chart();
+                };
+                
+                // 科室上报数量排行
+                const renderDeptRankChart = () => {
+                    const dom = document.getElementById('deptRankChart');
+                    if (!dom) return;
+                    if (charts.deptRank) charts.deptRank.dispose();
+                    charts.deptRank = echarts.init(dom);
+                    
+                    const details = reportDetailsData.value.report_details || [];
+                    const deptMap = {};
+                    details.forEach(item => {
+                        if (!deptMap[item.department]) deptMap[item.department] = 0;
+                        deptMap[item.department] += (item.total || 0);
+                    });
+                    
+                    const sorted = Object.entries(deptMap)
+                        .map(([name, value]) => ({ name, value }))
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 10);
+                    
+                    charts.deptRank.setOption({
+                        title: { text: '科室上报数量TOP10', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: 120, right: 60, top: 50, bottom: 30 },
+                        xAxis: { type: 'value', name: '数量' },
+                        yAxis: { type: 'category', data: sorted.map(d => d.name).reverse(), axisLabel: { width: 100, overflow: 'truncate' } },
+                        series: [{
+                            type: 'bar',
+                            data: sorted.map(d => d.value).reverse(),
+                            itemStyle: { color: '#409EFF' },
+                            label: { show: true, position: 'right', fontSize: 12 }
+                        }]
+                    });
+                };
+                
+                // 报告类型占比饼图
+                const renderReportTypeChart = () => {
+                    const dom = document.getElementById('reportTypeChart');
+                    if (!dom) return;
+                    if (charts.reportType) charts.reportType.dispose();
+                    charts.reportType = echarts.init(dom);
+                    
+                    const details = reportDetailsData.value.report_details || [];
+                    let general = 0, severe = 0, newGeneral = 0, newSevere = 0;
+                    details.forEach(item => {
+                        general += (item['一般'] || 0);
+                        severe += (item['严重'] || 0);
+                        newGeneral += (item['新的_一般'] || 0);
+                        newSevere += (item['新的_严重'] || 0);
+                    });
+                    
+                    charts.reportType.setOption({
+                        title: { text: '报告类型占比', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'item', formatter: '{b}: {c}例 ({d}%)' },
+                        legend: { bottom: 10 },
+                        color: ['#67C23A', '#F56C6C', '#409EFF', '#E6A23C'],
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '65%'],
+                            center: ['50%', '45%'],
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: { show: true, formatter: '{b}\n{d}%' },
+                            data: [
+                                { name: '一般', value: general },
+                                { name: '严重', value: severe },
+                                { name: '新的+一般', value: newGeneral },
+                                { name: '新的+严重', value: newSevere }
+                            ]
+                        }]
+                    });
+                };
+                
+                // 科室类型分布堆叠图
+                const renderDeptStackChart = () => {
+                    const dom = document.getElementById('deptStackChart');
+                    if (!dom) return;
+                    if (charts.deptStack) charts.deptStack.dispose();
+                    charts.deptStack = echarts.init(dom);
+                    
+                    const details = reportDetailsData.value.report_details || [];
+                    const deptMap = {};
+                    details.forEach(item => {
+                        if (!deptMap[item.department]) {
+                            deptMap[item.department] = { '一般': 0, '严重': 0, '新的_一般': 0, '新的_严重': 0, total: 0 };
+                        }
+                        deptMap[item.department]['一般'] += (item['一般'] || 0);
+                        deptMap[item.department]['严重'] += (item['严重'] || 0);
+                        deptMap[item.department]['新的_一般'] += (item['新的_一般'] || 0);
+                        deptMap[item.department]['新的_严重'] += (item['新的_严重'] || 0);
+                        deptMap[item.department].total += (item.total || 0);
+                    });
+                    
+                    const sorted = Object.entries(deptMap)
+                        .sort((a, b) => b[1].total - a[1].total)
+                        .slice(0, 8);
+                    const depts = sorted.map(d => d[0]);
+                    
+                    charts.deptStack.setOption({
+                        title: { text: '科室类型分布', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: ['一般', '严重', '新的+一般', '新的+严重'], bottom: 0 },
+                        grid: { left: 50, right: 30, top: 50, bottom: 60 },
+                        xAxis: { type: 'category', data: depts, axisLabel: { rotate: 20, fontSize: 10, interval: 0 } },
+                        yAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: '一般', type: 'bar', stack: 'total', data: sorted.map(d => d[1]['一般']), itemStyle: { color: '#67C23A' } },
+                            { name: '严重', type: 'bar', stack: 'total', data: sorted.map(d => d[1]['严重']), itemStyle: { color: '#F56C6C' } },
+                            { name: '新的+一般', type: 'bar', stack: 'total', data: sorted.map(d => d[1]['新的_一般']), itemStyle: { color: '#409EFF' } },
+                            { name: '新的+严重', type: 'bar', stack: 'total', data: sorted.map(d => d[1]['新的_严重']), itemStyle: { color: '#E6A23C' } }
+                        ]
+                    });
+                };
+                
+                // 上报人员TOP10
+                const renderReporterTop10Chart = () => {
+                    const dom = document.getElementById('reporterTop10Chart');
+                    if (!dom) return;
+                    if (charts.reporterTop10) charts.reporterTop10.dispose();
+                    charts.reporterTop10 = echarts.init(dom);
+                    
+                    const details = reportDetailsData.value.report_details || [];
+                    const sorted = [...details]
+                        .sort((a, b) => (b.total || 0) - (a.total || 0))
+                        .slice(0, 10);
+                    
+                    charts.reporterTop10.setOption({
+                        title: { text: '上报人员TOP10', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: 100, right: 60, top: 50, bottom: 30 },
+                        xAxis: { type: 'value', name: '数量' },
+                        yAxis: { type: 'category', data: sorted.map(d => d.reporter_name).reverse() },
+                        series: [{
+                            type: 'bar',
+                            data: sorted.map(d => d.total || 0).reverse(),
+                            itemStyle: { color: '#67C23A' },
+                            label: { show: true, position: 'right', fontSize: 12 }
+                        }]
+                    });
+                };
+                
+                // 奖励计算图表渲染
+                const renderRewardCharts = () => {
+                    renderRewardTop10Chart();
+                    renderRewardTypeChart();
+                    renderDeptRewardChart();
+                    renderDeptRewardStackChart();
+                };
+                
+                // 个人奖励TOP10
+                const renderRewardTop10Chart = () => {
+                    const dom = document.getElementById('rewardTop10Chart');
+                    if (!dom) return;
+                    if (charts.rewardTop10) charts.rewardTop10.dispose();
+                    charts.rewardTop10 = echarts.init(dom);
+                    
+                    const details = rewardData.value.reward_details || [];
+                    const sorted = [...details]
+                        .filter(d => !d.isSubtotal && !d.isTotal)
+                        .sort((a, b) => (b['个人奖励合计'] || 0) - (a['个人奖励合计'] || 0))
+                        .slice(0, 10);
+                    
+                    charts.rewardTop10.setOption({
+                        title: { text: '个人奖励TOP10', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: ¥{c}' },
+                        grid: { left: 100, right: 80, top: 50, bottom: 30 },
+                        xAxis: { type: 'value', name: '金额(元)' },
+                        yAxis: { type: 'category', data: sorted.map(d => d.reporter_name).reverse() },
+                        series: [{
+                            type: 'bar',
+                            data: sorted.map(d => d['个人奖励合计'] || 0).reverse(),
+                            itemStyle: { color: '#E6A23C' },
+                            label: { show: true, position: 'right', fontSize: 12, formatter: '¥{c}' }
+                        }]
+                    });
+                };
+                
+                // 奖励类型占比饼图
+                const renderRewardTypeChart = () => {
+                    const dom = document.getElementById('rewardTypeChart');
+                    if (!dom) return;
+                    if (charts.rewardType) charts.rewardType.dispose();
+                    charts.rewardType = echarts.init(dom);
+                    
+                    const details = rewardData.value.reward_details || [];
+                    let r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+                    details.filter(d => !d.isSubtotal && !d.isTotal).forEach(item => {
+                        r1 += (item['奖励_一般'] || 0);
+                        r2 += (item['奖励_严重'] || 0);
+                        r3 += (item['奖励_新的一般'] || 0);
+                        r4 += (item['奖励_新的严重'] || 0);
+                    });
+                    
+                    charts.rewardType.setOption({
+                        title: { text: '奖励类型占比', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+                        legend: { bottom: 10 },
+                        color: ['#67C23A', '#F56C6C', '#409EFF', '#E6A23C'],
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '65%'],
+                            center: ['50%', '45%'],
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: { show: true, formatter: '{b}\n¥{c}' },
+                            data: [
+                                { name: '一般', value: r1 },
+                                { name: '严重', value: r2 },
+                                { name: '新的+一般', value: r3 },
+                                { name: '新的+严重', value: r4 }
+                            ]
+                        }]
+                    });
+                };
+                
+                // 科室奖励排行
+                const renderDeptRewardChart = () => {
+                    const dom = document.getElementById('deptRewardChart');
+                    if (!dom) return;
+                    if (charts.deptReward) charts.deptReward.dispose();
+                    charts.deptReward = echarts.init(dom);
+                    
+                    const details = rewardData.value.reward_details || [];
+                    const deptMap = {};
+                    details.filter(d => !d.isSubtotal && !d.isTotal).forEach(item => {
+                        if (!deptMap[item.department]) deptMap[item.department] = 0;
+                        deptMap[item.department] += (item['个人奖励合计'] || 0);
+                    });
+                    
+                    const sorted = Object.entries(deptMap)
+                        .map(([name, value]) => ({ name, value }))
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 10);
+                    
+                    charts.deptReward.setOption({
+                        title: { text: '科室奖励TOP10', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: ¥{c}' },
+                        grid: { left: 120, right: 80, top: 50, bottom: 30 },
+                        xAxis: { type: 'value', name: '金额(元)' },
+                        yAxis: { type: 'category', data: sorted.map(d => d.name).reverse(), axisLabel: { width: 100, overflow: 'truncate' } },
+                        series: [{
+                            type: 'bar',
+                            data: sorted.map(d => d.value).reverse(),
+                            itemStyle: { color: '#409EFF' },
+                            label: { show: true, position: 'right', fontSize: 12, formatter: '¥{c}' }
+                        }]
+                    });
+                };
+                
+                // 科室奖励类型分布堆叠图
+                const renderDeptRewardStackChart = () => {
+                    const dom = document.getElementById('deptRewardStackChart');
+                    if (!dom) return;
+                    if (charts.deptRewardStack) charts.deptRewardStack.dispose();
+                    charts.deptRewardStack = echarts.init(dom);
+                    
+                    const details = rewardData.value.reward_details || [];
+                    const deptMap = {};
+                    details.filter(d => !d.isSubtotal && !d.isTotal).forEach(item => {
+                        if (!deptMap[item.department]) {
+                            deptMap[item.department] = { r1: 0, r2: 0, r3: 0, r4: 0, total: 0 };
+                        }
+                        deptMap[item.department].r1 += (item['奖励_一般'] || 0);
+                        deptMap[item.department].r2 += (item['奖励_严重'] || 0);
+                        deptMap[item.department].r3 += (item['奖励_新的一般'] || 0);
+                        deptMap[item.department].r4 += (item['奖励_新的严重'] || 0);
+                        deptMap[item.department].total += (item['个人奖励合计'] || 0);
+                    });
+                    
+                    const sorted = Object.entries(deptMap)
+                        .sort((a, b) => b[1].total - a[1].total)
+                        .slice(0, 8);
+                    const depts = sorted.map(d => d[0]);
+                    
+                    charts.deptRewardStack.setOption({
+                        title: { text: '科室奖励类型分布', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: params => {
+                            let s = params[0].name + '<br/>';
+                            params.forEach(p => { s += p.marker + p.seriesName + ': ¥' + p.value + '<br/>'; });
+                            return s;
+                        }},
+                        legend: { data: ['一般', '严重', '新的+一般', '新的+严重'], bottom: 0 },
+                        grid: { left: 50, right: 30, top: 50, bottom: 60 },
+                        xAxis: { type: 'category', data: depts, axisLabel: { rotate: 20, fontSize: 10, interval: 0 } },
+                        yAxis: { type: 'value', name: '金额(元)' },
+                        series: [
+                            { name: '一般', type: 'bar', stack: 'total', data: sorted.map(d => d[1].r1), itemStyle: { color: '#67C23A' } },
+                            { name: '严重', type: 'bar', stack: 'total', data: sorted.map(d => d[1].r2), itemStyle: { color: '#F56C6C' } },
+                            { name: '新的+一般', type: 'bar', stack: 'total', data: sorted.map(d => d[1].r3), itemStyle: { color: '#409EFF' } },
+                            { name: '新的+严重', type: 'bar', stack: 'total', data: sorted.map(d => d[1].r4), itemStyle: { color: '#E6A23C' } }
+                        ]
+                    });
+                };
+
+                // 类型分布图 - 柱状图
+                const renderSeverityChart = () => {
+                    const dom = document.getElementById('severityChart');
+                    if (!dom) return;
+                    if (charts.severity) charts.severity.dispose();
+                    charts.severity = echarts.init(dom);
+                    
+                    // 使用后端返回的chart_data数据
+                    const chartData = statisticsData.value.chart_data || [];
+                    const colorMap = { '总计': '#909399', '严重': '#F56C6C', '新的+严重': '#E6A23C' };
+                    
+                    charts.severity.setOption({
+                        title: { text: '类型分布图', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: 60, right: 40, top: 60, bottom: 40 },
+                        xAxis: { type: 'category', data: chartData.map(d => d.name), axisLabel: { fontSize: 12 } },
+                        yAxis: { type: 'value', name: '数量' },
+                        series: [{
+                            type: 'bar',
+                            barWidth: 60,
+                            data: chartData.map(d => ({
+                                value: d.value,
+                                itemStyle: { color: colorMap[d.name] || '#909399' }
+                            })),
+                            label: {
+                                show: true,
+                                position: 'top',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                color: '#333'
+                            }
+                        }]
+                    });
+                };
+
+                // 月度统计柱状图
+                const renderMonthChart = () => {
+                    const dom = document.getElementById('monthChart');
+                    if (!dom) return;
+                    if (charts.month) charts.month.dispose();
+                    charts.month = echarts.init(dom);
+                    
+                    const monthStats = statisticsData.value.month_stats || [];
+                    const months = monthStats.map(m => m.month);
+                    
+                    charts.month.setOption({
+                        title: { text: '月度统计', left: 'center', textStyle: { fontSize: 15 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: ['一般', '严重', '新的+一般', '新的+严重'], bottom: 0 },
+                        grid: { left: 50, right: 20, top: 50, bottom: 60 },
+                        xAxis: { type: 'category', data: months, axisLabel: { fontSize: 11 } },
+                        yAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: '一般', type: 'bar', data: monthStats.map(m => m['一般'] || 0), itemStyle: { color: '#52c41a' } },
+                            { name: '严重', type: 'bar', data: monthStats.map(m => m['严重'] || 0), itemStyle: { color: '#ff4d4f' } },
+                            { name: '新的+一般', type: 'bar', data: monthStats.map(m => m['新的+一般'] || 0), itemStyle: { color: '#1890ff' } },
+                            { name: '新的+严重', type: 'bar', data: monthStats.map(m => m['新的+严重'] || 0), itemStyle: { color: '#faad14' } }
+                        ]
+                    });
+                };
+
+                // 药品TOP10柱状图 - 横向柱状图完整显示名称
+                const renderDrugBarChart = () => {
+                    const dom = document.getElementById('drugBarChart');
+                    if (!dom) return;
+                    if (charts.drugBar) charts.drugBar.dispose();
+                    charts.drugBar = echarts.init(dom);
+                    
+                    const drugs = (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal).slice(0, 10).reverse();
+                    
+                    charts.drugBar.setOption({
+                        title: { text: '前十名药品不良反应统计', left: 'center', textStyle: { fontSize: 16 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: ['一般', '严重'], top: 35 },
+                        grid: { left: 200, right: 80, top: 80, bottom: 30 },
+                        yAxis: { 
+                            type: 'category', 
+                            data: drugs.map(d => d.drug_name),
+                            axisLabel: { fontSize: 12 }
+                        },
+                        xAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: '一般', type: 'bar', data: drugs.map(d => d['一般'] || 0), itemStyle: { color: '#52c41a' }, label: { show: true, position: 'right', fontSize: 11 } },
+                            { name: '严重', type: 'bar', data: drugs.map(d => d['严重'] || 0), itemStyle: { color: '#ff4d4f' }, label: { show: true, position: 'right', fontSize: 11 } }
+                        ]
+                    });
+                };
+
+                // 药品分布饼图 - 完整显示名称
+                const renderDrugPieChart = () => {
+                    const dom = document.getElementById('drugPieChart');
+                    if (!dom) return;
+                    if (charts.drugPie) charts.drugPie.dispose();
+                    charts.drugPie = echarts.init(dom);
+                    
+                    const drugs = (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal).slice(0, 10);
+                    
+                    charts.drugPie.setOption({
+                        title: { text: '药品不良反应分布TOP10', left: 'center', textStyle: { fontSize: 16 } },
+                        tooltip: { trigger: 'item', formatter: '{b}: {c}例 ({d}%)' },
+                        legend: { 
+                            type: 'scroll',
+                            orient: 'vertical',
+                            right: 20,
+                            top: 60,
+                            bottom: 20,
+                            textStyle: { fontSize: 11 }
+                        },
+                        series: [{
+                            type: 'pie', 
+                            radius: ['30%', '60%'],
+                            center: ['40%', '55%'],
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: { 
+                                show: true,
+                                formatter: '{b}\n{d}%',
+                                fontSize: 11,
+                                lineHeight: 14
+                            },
+                            labelLine: { show: true, length: 15, length2: 20 },
+                            data: drugs.map(d => ({ name: d.drug_name, value: d.total }))
+                        }]
+                    });
+                };
+
+                const downloadChart = (chartId) => {
+                    const chart = charts[chartId.replace('Chart', '')];
+                    if (!chart) return;
+                    
+                    const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${chartId}_${new Date().toISOString().slice(0, 10)}.png`;
+                    link.click();
+                };
+
+                window.addEventListener('resize', () => {
+                    Object.values(charts).forEach(chart => chart && chart.resize());
+                });
+
+                return {
+                    tab, viewMode, filter, loading, drugChartType, exportProgress,
+                    allData, deduplicatedData, statisticsData, reportDetailsData, reportDetailsWithSummary, rewardData, drugSummaryData,
+                    hasData, getSeverityCount, getNewCount, formatDate,
+                    analyze, resetFilters, exportAll, exportTab,
+                    switchTab, switchToChart, switchToReportChart, switchToRewardChart, switchDrugChart, downloadChart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

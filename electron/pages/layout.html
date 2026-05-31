@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医院药学药物警戒与运营绩效可视化分析系统</title>
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap-icons-local.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <style>
+        /* AI 助手样式 */
+        .ai-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            height: 48px;
+            padding: 0 20px 0 16px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(24, 144, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        .ai-fab:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 24px rgba(24, 144, 255, 0.5);
+        }
+        .ai-fab i { color: white; font-size: 20px; }
+        .ai-fab span { color: white; font-size: 14px; font-weight: 500; white-space: nowrap; }
+
+        /* 聊天窗口 */
+        .ai-chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            width: 420px;
+            height: 560px;
+            min-width: 320px;
+            min-height: 400px;
+            max-width: 90vw;
+            max-height: 85vh;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1001;
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            resize: both;
+        }
+        .ai-chat-window.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .ai-chat-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .ai-chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .ai-chat-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ai-chat-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            padding: 6px 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        .ai-chat-btn:hover { 
+            color: white; 
+            background: rgba(255,255,255,0.2);
+        }
+        .ai-chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(24, 144, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ai-chat-avatar i { color: #40a9ff; font-size: 18px; }
+        .ai-chat-title { color: white; font-weight: 600; font-size: 15px; }
+        .ai-chat-subtitle { color: rgba(255,255,255,0.6); font-size: 11px; }
+        .ai-chat-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+            transition: color 0.2s;
+        }
+        .ai-chat-close:hover { color: white; }
+
+        .ai-chat-disclaimer {
+            background: #fffbe6;
+            border-bottom: 1px solid #ffe58f;
+            padding: 8px 16px;
+            font-size: 11px;
+            color: #ad6800;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ai-chat-disclaimer i { color: #faad14; }
+
+        .ai-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ai-message {
+            display: flex;
+            gap: 10px;
+            max-width: 90%;
+        }
+        .ai-message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .ai-message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+        .ai-message.assistant .ai-message-avatar {
+            background: linear-gradient(135deg, #1890ff, #40a9ff);
+            color: white;
+        }
+        .ai-message.user .ai-message-avatar {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .ai-message-content {
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .ai-message.assistant .ai-message-content {
+            background: #f5f7fa;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        .ai-message.user .ai-message-content {
+            background: linear-gradient(135deg, #1890ff, #40a9ff);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-typing {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 14px;
+            background: #f5f7fa;
+            border-radius: 12px;
+            width: fit-content;
+        }
+        .ai-typing span {
+            width: 6px;
+            height: 6px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .ai-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .ai-typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        .ai-chat-input-area {
+            padding: 12px 16px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            gap: 10px;
+            background: #fafafa;
+        }
+        .ai-chat-input {
+            flex: 1;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 10px 16px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .ai-chat-input:focus { border-color: #1890ff; }
+        .ai-chat-send {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1890ff, #096dd9);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .ai-chat-send:hover { transform: scale(1.05); }
+        .ai-chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ai-chat-send i { color: white; font-size: 16px; }
+
+        .ai-welcome {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+        }
+        .ai-welcome i { font-size: 48px; color: #1890ff; margin-bottom: 16px; }
+        .ai-welcome h4 { font-size: 16px; color: #333; margin-bottom: 8px; }
+        .ai-welcome p { font-size: 13px; line-height: 1.6; }
+
+        /* 快捷指令栏 */
+        .ai-quick-actions {
+            display: flex;
+            gap: 6px;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e8e8e8;
+            overflow-x: auto;
+        }
+        .ai-quick-btn {
+            padding: 6px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 16px;
+            background: white;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .ai-quick-btn:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+            background: #e6f7ff;
+        }
+        .ai-quick-btn i { font-size: 12px; }
+        .ai-quick-btn.export { background: #f6ffed; border-color: #b7eb8f; color: #52c41a; }
+        .ai-quick-btn.export:hover { background: #d9f7be; border-color: #52c41a; }
+        
+        /* 时间选择器 */
+        .ai-date-picker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+        .ai-date-picker input {
+            border: none;
+            outline: none;
+            width: 90px;
+            font-size: 11px;
+            color: #333;
+        }
+        .ai-date-picker select {
+            border: none;
+            outline: none;
+            font-size: 11px;
+            color: #333;
+            background: transparent;
+            cursor: pointer;
+        }
+        .ai-date-picker span { color: #999; }
+        
+        /* 图表显示 */
+        .ai-chart-container {
+            width: 100%;
+            height: 280px;
+            margin-top: 10px;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        /* 导出按钮栏 */
+        .ai-export-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .ai-export-btn {
+            padding: 5px 10px;
+            font-size: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            color: #475569;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .ai-export-btn:hover {
+            background: #f1f5f9;
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .ai-export-btn i { font-size: 13px; }
+
+        /* Markdown渲染样式 */
+        .ai-message-content h1, .ai-message-content h2, .ai-message-content h3 {
+            margin: 12px 0 8px 0;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .ai-message-content h2 { font-size: 15px; }
+        .ai-message-content h3 { font-size: 14px; }
+        .ai-message-content ul, .ai-message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .ai-message-content li { margin: 4px 0; }
+        .ai-message-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .ai-message-content th, .ai-message-content td {
+            border: 1px solid #e0e0e0;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .ai-message-content th { background: #f5f5f5; font-weight: 600; }
+        .ai-message-content code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .ai-message-content blockquote {
+            border-left: 3px solid #1890ff;
+            padding-left: 12px;
+            margin: 10px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="app-layout">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="../assets/logo.png" alt="Logo">
+                    <div class="sidebar-logo-text">
+                        医院药学药物警戒
+                        <small>运营绩效可视化分析系统</small>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+                <div class="menu-section">
+                    <div class="menu-section-title"><i class="bi bi-house-door"></i> 概览</div>
+                    <a class="menu-item" :class="{ active: currentPage === 'dashboard' }" @click="loadPage('dashboard')">
+                        <i class="bi bi-grid-1x2-fill"></i>
+                        <span>仪表板</span>
+                    </a>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title"><i class="bi bi-folder2-open"></i> 数据管理</div>
+                    <a class="menu-item" :class="{ active: currentPage === 'import' }" @click="loadPage('import')">
+                        <i class="bi bi-cloud-upload-fill"></i>
+                        <span>数据导入</span>
+                    </a>
+                    <a class="menu-item" :class="{ active: currentPage === 'workload-import' }" @click="loadPage('workload-import')">
+                        <i class="bi bi-file-earmark-arrow-up"></i>
+                        <span>工作量导入</span>
+                    </a>
+                    <a class="menu-item" :class="{ active: currentPage === 'reports' }" @click="loadPage('reports')">
+                        <i class="bi bi-file-earmark-medical-fill"></i>
+                        <span>报告管理</span>
+                    </a>
+                    <a class="menu-item" :class="{ active: currentPage === 'workload' }" @click="loadPage('workload')">
+                        <i class="bi bi-bar-chart-fill"></i>
+                        <span>工作量管理</span>
+                    </a>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title"><i class="bi bi-clipboard-data"></i> 数据分析</div>
+                    <a class="menu-item" :class="{ active: currentPage === 'analysis' }" @click="loadPage('analysis')">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        <span>报告分析</span>
+                    </a>
+                    <a class="menu-item" :class="{ active: currentPage === 'workload-statistics' }" @click="loadPage('workload-statistics')">
+                        <i class="bi bi-bar-chart-line-fill"></i>
+                        <span>工作量统计</span>
+                    </a>
+                    <a class="menu-item" :class="{ active: currentPage === 'drug-category' }" @click="loadPage('drug-category')">
+                        <i class="bi bi-capsule"></i>
+                        <span>药物分类</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.username }}</div>
+                        <div class="user-role">管理员</div>
+                    </div>
+                    <button class="btn-logout" @click="logout" title="退出登录">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <iframe ref="contentFrame" :src="pageSrc" frameborder="0" class="content-frame"></iframe>
+        </main>
+
+        <!-- AI 助手悬浮按钮 -->
+        <button class="ai-fab" @click="toggleAiChat" title="AI 智能助手">
+            <i class="bi bi-robot"></i>
+            <span>AI助手</span>
+        </button>
+
+        <!-- AI 聊天窗口 -->
+        <div class="ai-chat-window" :class="{ show: aiChatOpen }" :style="aiWindowStyle">
+            <div class="ai-chat-header">
+                <div class="ai-chat-header-left">
+                    <div class="ai-chat-avatar"><i class="bi bi-robot"></i></div>
+                    <div>
+                        <div class="ai-chat-title">AI 智能助手</div>
+                        <div class="ai-chat-subtitle">Powered by DeepSeek</div>
+                    </div>
+                </div>
+                <div class="ai-chat-header-right">
+                    <button class="ai-chat-btn" @click="toggleMaximize" :title="isMaximized ? '还原' : '放大'">
+                        <i :class="isMaximized ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen'"></i>
+                    </button>
+                    <button class="ai-chat-btn" @click="toggleAiChat" title="关闭">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="ai-chat-disclaimer">
+                <i class="bi bi-shield-check"></i>
+                <span>AI基于统计数据分析，不访问患者隐私信息</span>
+            </div>
+            <!-- 快捷指令栏 -->
+            <div class="ai-quick-actions">
+                <div class="ai-date-picker" title="选择数据集和时间范围">
+                    <select v-model="aiDataset">
+                        <option value="report">报告数据</option>
+                        <option value="workload">工作量数据</option>
+                    </select>
+                    <span>|</span>
+                    <input type="month" v-model="aiStartMonth" placeholder="开始">
+                    <span>-</span>
+                    <input type="month" v-model="aiEndMonth" placeholder="结束">
+                </div>
+                <button class="ai-quick-btn" @click="aiQuickAction('analyze')" :disabled="aiLoading">
+                    <i class="bi bi-graph-up"></i> 洞察
+                </button>
+                <button class="ai-quick-btn" @click="aiQuickAction('trend')" :disabled="aiLoading">
+                    <i class="bi bi-activity"></i> 趋势
+                </button>
+                <button class="ai-quick-btn" @click="aiQuickAction('report')" :disabled="aiLoading">
+                    <i class="bi bi-file-text"></i> 报告
+                </button>
+                <button class="ai-quick-btn export" @click="exportReportWord" :disabled="!lastReportContent" title="导出">
+                    <i class="bi bi-file-word"></i> 导出
+                </button>
+            </div>
+            <div class="ai-chat-messages" ref="aiMessagesContainer">
+                <div v-if="aiMessages.length === 0" class="ai-welcome">
+                    <i class="bi bi-robot"></i>
+                    <h4>AI 药物警戒助手</h4>
+                    <p>我可以帮您分析不良反应数据、预测趋势、生成报告、提供用药建议。<br><br>点击上方按钮或输入 <code>/帮助</code> 查看使用指南。</p>
+                </div>
+                <div v-for="(msg, idx) in aiMessages" :key="idx" class="ai-message" :class="msg.role">
+                    <div class="ai-message-avatar">
+                        <i :class="msg.role === 'user' ? 'bi bi-person-fill' : 'bi bi-robot'"></i>
+                    </div>
+                    <div class="ai-message-content">
+                        <div v-html="formatMessage(msg.content)"></div>
+                        <div v-if="msg.chartData" :id="'chart-' + idx" class="ai-chart-container"></div>
+                        <div v-if="msg.role === 'assistant' && (msg.chartData || msg.isReport)" class="ai-export-bar">
+                            <button v-if="msg.chartData" class="ai-export-btn" @click="exportChart(idx)" title="导出图表">
+                                <i class="bi bi-image"></i> 导出图片
+                            </button>
+                            <button v-if="msg.isReport || msg.content.length > 200" class="ai-export-btn" @click="exportToWord(msg.content)" title="导出Word">
+                                <i class="bi bi-file-earmark-word"></i> 导出Word
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="aiLoading" class="ai-message assistant">
+                    <div class="ai-message-avatar"><i class="bi bi-robot"></i></div>
+                    <div class="ai-typing"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+            <div class="ai-chat-input-area">
+                <input class="ai-chat-input" 
+                       v-model="aiInput" 
+                       placeholder="输入你的问题..." 
+                       @keyup.enter="sendAiMessage"
+                       :disabled="aiLoading">
+                <button type="button" class="ai-chat-send" @click="sendAiMessage" :disabled="aiLoading || !aiInput">
+                    <i class="bi bi-send-fill"></i>
+            </div>
+        </div>
+
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+        <script>
+            // 从 URL 参数获取 token
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
+            if (urlToken) {
+                localStorage.setItem('token', urlToken);
+            }
+            
+            // 设置全局 token 供 iframe 访问
+            window.APP_TOKEN = localStorage.getItem('token') || urlToken;
+            
+            const { createApp, ref, onMounted, nextTick } = Vue;
+
+            createApp({
+            setup() {
+                const currentPage = ref('dashboard');
+                const token = window.APP_TOKEN || '';
+                const pageSrc = ref(`views/dashboard.html?token=${encodeURIComponent(token)}`);
+                const user = ref({ username: 'admin' });
+                const contentFrame = ref(null);
+                
+                // AI 助手状态
+                const aiChatOpen = ref(false);
+                const aiInput = ref('');
+                const aiMessages = ref([]);
+                const aiLoading = ref(false);
+                const aiMessagesRef = ref(null);
+                const lastReportContent = ref('');
+                const aiChatWindow = ref(null);
+                const aiStartMonth = ref('');
+                const aiEndMonth = ref('');
+                const aiDataset = ref('report');
+                const isMaximized = ref(false);
+
+                const loadPage = (page) => {
+                    currentPage.value = page;
+                    pageSrc.value = `views/${page}.html?token=${encodeURIComponent(token)}`;
+                };
+
+                const logout = async () => {
+                    try {
+                        await fetch('http://localhost:5001/api/auth/logout', {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                    } catch (e) {}
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                };
+                
+                // AI 助手方法
+                const toggleAiChat = () => {
+                    aiChatOpen.value = !aiChatOpen.value;
+                    if (!aiChatOpen.value) {
+                        isMaximized.value = false;
+                    }
+                };
+                
+                // 计算窗口样式（放大时全屏）
+                const aiWindowStyle = Vue.computed(() => {
+                    if (isMaximized.value) {
+                        return {
+                            top: '10px',
+                            left: '10px',
+                            right: '10px',
+                            bottom: '10px',
+                            width: 'auto',
+                            height: 'auto',
+                            maxWidth: 'none',
+                            maxHeight: 'none',
+                            borderRadius: '12px'
+                        };
+                    }
+                    return {};
+                });
+                
+                // 放大/还原
+                const toggleMaximize = () => {
+                    isMaximized.value = !isMaximized.value;
+                };
+                
+                // 图表实例存储
+                const chartInstances = {};
+                
+                // 渲染ECharts图表
+                const renderChart = (chartId, chartData) => {
+                    nextTick(() => {
+                        const dom = document.getElementById(chartId);
+                        if (!dom) return;
+                        
+                        // 如果已有实例，先销毁
+                        if (chartInstances[chartId]) {
+                            chartInstances[chartId].dispose();
+                        }
+                        
+                        const chart = echarts.init(dom);
+                        chartInstances[chartId] = chart; // 保存实例
+                        const { type, title, labels, values } = chartData;
+                        
+                        let option = {};
+                        const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', 
+                                       '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#48b8d0'];
+                        
+                        if (type === 'pie') {
+                            option = {
+                                title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+                                tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                                legend: { orient: 'horizontal', bottom: 10 },
+                                series: [{
+                                    type: 'pie',
+                                    radius: ['30%', '60%'],
+                                    center: ['50%', '45%'],
+                                    data: labels.map((name, i) => ({ 
+                                        name, 
+                                        value: values[i],
+                                        itemStyle: { color: colors[i % colors.length] }
+                                    })),
+                                    label: { formatter: '{b}: {d}%' },
+                                    emphasis: { itemStyle: { shadowBlur: 10 } }
+                                }]
+                            };
+                        } else if (type === 'line') {
+                            option = {
+                                title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+                                tooltip: { trigger: 'axis' },
+                                xAxis: { type: 'category', data: labels },
+                                yAxis: { type: 'value' },
+                                series: [{
+                                    type: 'line',
+                                    data: values,
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.3 },
+                                    itemStyle: { color: '#5470c6' }
+                                }]
+                            };
+                        } else {
+                            option = {
+                                title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+                                tooltip: { trigger: 'axis' },
+                                xAxis: { type: 'category', data: labels, axisLabel: { rotate: 30 } },
+                                yAxis: { type: 'value' },
+                                series: [{
+                                    type: 'bar',
+                                    data: values.map((v, i) => ({ 
+                                        value: v, 
+                                        itemStyle: { color: colors[i % colors.length] }
+                                    })),
+                                    label: { show: true, position: 'top' }
+                                }]
+                            };
+                        }
+                        
+                        chart.setOption(option);
+                    });
+                };
+                
+                // 获取日期区间字符串（用于文件名）
+                const getDateRange = () => {
+                    const start = aiStartMonth.value || '';
+                    const end = aiEndMonth.value || '';
+                    if (start && end) {
+                        if (start === end) {
+                            return start.replace('-', '');
+                        }
+                        return `${start.replace('-', '')}-${end.replace('-', '')}`;
+                    } else if (start) {
+                        return start.replace('-', '');
+                    } else if (end) {
+                        return end.replace('-', '');
+                    }
+                    // 如果没有选择日期，使用当前日期
+                    const now = new Date();
+                    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+                };
+                
+                // 导出图表为图片
+                const exportChart = (msgIdx) => {
+                    const chartId = `chart-${msgIdx}`;
+                    const chart = chartInstances[chartId];
+                    if (!chart) {
+                        alert('图表未加载完成');
+                        return;
+                    }
+                    const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+                    const link = document.createElement('a');
+                    link.download = `AI统计图表_${getDateRange()}.png`;
+                    link.href = url;
+                    link.click();
+                };
+                
+                // 导出内容为Word
+                const exportToWord = async (content) => {
+                    try {
+                        const response = await fetch('http://localhost:5001/api/ai/export-word', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ content })
+                        });
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `AI分析报告_${getDateRange()}.docx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        } else {
+                            alert('导出失败，请重试');
+                        }
+                    } catch (e) {
+                        alert('导出失败，请检查网络连接');
+                    }
+                };
+                
+                const formatMessage = (content) => {
+                    // Markdown 转换
+                    let html = content
+                        // 表格处理
+                        .replace(/\|(.+)\|\n\|[-:| ]+\|\n((?:\|.+\|\n?)+)/g, (match, header, body) => {
+                            const headers = header.split('|').filter(h => h.trim());
+                            const rows = body.trim().split('\n').map(row => 
+                                row.split('|').filter(c => c.trim())
+                            );
+                            let table = '<table><thead><tr>';
+                            headers.forEach(h => table += `<th>${h.trim()}</th>`);
+                            table += '</tr></thead><tbody>';
+                            rows.forEach(row => {
+                                table += '<tr>';
+                                row.forEach(cell => table += `<td>${cell.trim()}</td>`);
+                                table += '</tr>';
+                            });
+                            return table + '</tbody></table>';
+                        })
+                        // 标题
+                        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                        // 列表
+                        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+                        // 粗体和斜体
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        // 代码
+                        .replace(/`([^`]+)`/g, '<code>$1</code>')
+                        // 换行
+                        .replace(/\n/g, '<br>');
+                    
+                    // 包装连续的li为ul
+                    html = html.replace(/(<li>.*?<\/li>(<br>)?)+/g, match => {
+                        return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+                    });
+                    
+                    return html;
+                };
+                
+                const scrollToBottom = () => {
+                    nextTick(() => {
+                        const container = document.querySelector('.ai-chat-messages');
+                        if (container) container.scrollTop = container.scrollHeight;
+                    });
+                };
+                
+                // 解析命令
+                const parseCommand = (message) => {
+                    const trimmed = message.trim();
+                    if (!trimmed.startsWith('/')) return null;
+                    
+                    const parts = trimmed.slice(1).split(/\s+/);
+                    const cmd = parts[0];
+                    const args = parts.slice(1);
+                    
+                    const cmdMap = {
+                        '分析': 'analyze',
+                        '趋势': 'trend', 
+                        '报告': 'report',
+                        '建议': 'advice',
+                        '帮助': 'help'
+                    };
+                    
+                    return { cmd: cmdMap[cmd] || cmd, args };
+                };
+                
+                // 执行智能分析API
+                const callAiApi = async (endpoint, data = {}) => {
+                    const response = await fetch(`http://localhost:5001/api/ai/${endpoint}`, {
+                        method: endpoint === 'help' ? 'GET' : 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: endpoint === 'help' ? undefined : JSON.stringify(data)
+                    });
+                    return await response.json();
+                };
+                
+                // 快捷指令处理
+                const aiQuickAction = async (action) => {
+                    if (aiLoading.value) return;
+                    
+                    const actionLabels = {
+                        'analyze': '📊 数据洞察分析',
+                        'trend': '📈 趋势预测分析',
+                        'report': '📝 生成分析报告',
+                        'advice': '💊 用药安全建议',
+                        'help': '❓ 使用帮助'
+                    };
+                    
+                    // 构建时间范围显示
+                    const timeRange = aiStartMonth.value || aiEndMonth.value 
+                        ? `（${aiStartMonth.value || '最早'} 至 ${aiEndMonth.value || '最新'}）` 
+                        : '（全部数据）';
+                    
+                    if (action === 'advice') {
+                        const drugName = prompt('请输入药品名称：');
+                        if (!drugName) return;
+                        aiMessages.value.push({ role: 'user', content: `${actionLabels[action]}\n药品：${drugName}` });
+                        aiLoading.value = true;
+                        scrollToBottom();
+                        
+                        try {
+                            const result = await callAiApi('advice', { drug_name: drugName });
+                            aiMessages.value.push({ 
+                                role: 'assistant', 
+                                content: result.success ? result.reply : `抱歉，${result.message}` 
+                            });
+                        } catch (e) {
+                            aiMessages.value.push({ role: 'assistant', content: '请求失败，请稍后重试。' });
+                        } finally {
+                            aiLoading.value = false;
+                            scrollToBottom();
+                        }
+                        return;
+                    }
+                    
+                    // 显示带时间范围的请求
+                    const displayLabel = ['analyze', 'trend', 'report'].includes(action) 
+                        ? `${actionLabels[action]} ${timeRange}` 
+                        : actionLabels[action];
+                    aiMessages.value.push({ role: 'user', content: displayLabel });
+                    aiLoading.value = true;
+                    scrollToBottom();
+                    
+                    try {
+                        // 传递时间参数
+                        const params = {};
+                        if (['analyze', 'trend', 'report'].includes(action)) {
+                            if (aiStartMonth.value) params.start_month = aiStartMonth.value;
+                            if (aiEndMonth.value) params.end_month = aiEndMonth.value;
+                        }
+                        
+                        const result = await callAiApi(action, params);
+                        const reply = result.success ? (result.reply || result.help) : `抱歉，${result.message}`;
+                        aiMessages.value.push({ role: 'assistant', content: reply });
+                        
+                        // 保存报告内容用于导出
+                        if (result.success && ['analyze', 'trend', 'report'].includes(action)) {
+                            lastReportContent.value = reply;
+                        }
+                    } catch (e) {
+                        aiMessages.value.push({ role: 'assistant', content: '请求失败，请稍后重试。' });
+                    } finally {
+                        aiLoading.value = false;
+                        scrollToBottom();
+                    }
+                };
+                
+                // 导出报告为Word
+                const exportReportWord = async () => {
+                    if (!lastReportContent.value) {
+                        alert('请先生成报告后再导出');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('http://localhost:5001/api/ai/export-word', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                content: lastReportContent.value,
+                                title: '药品不良反应分析报告'
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `药品不良反应分析报告_${new Date().toISOString().slice(0,10)}.docx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        } else {
+                            const result = await response.json();
+                            alert(result.message || '导出失败');
+                        }
+                    } catch (e) {
+                        alert('导出失败，请稍后重试');
+                    }
+                };
+                
+                const sendAiMessage = async () => {
+                    const message = aiInput.value.trim();
+                    if (!message || aiLoading.value) return;
+                    
+                    // 检查是否是命令
+                    const command = parseCommand(message);
+                    if (command) {
+                        aiInput.value = '';
+                        
+                        if (command.cmd === 'help') {
+                            aiMessages.value.push({ role: 'user', content: message });
+                            aiLoading.value = true;
+                            scrollToBottom();
+                            try {
+                                const result = await callAiApi('help');
+                                aiMessages.value.push({ role: 'assistant', content: result.help || '获取帮助失败' });
+                            } catch (e) {
+                                aiMessages.value.push({ role: 'assistant', content: '获取帮助失败' });
+                            } finally {
+                                aiLoading.value = false;
+                                scrollToBottom();
+                            }
+                            return;
+                        }
+                        
+                        if (command.cmd === 'advice') {
+                            const drugName = command.args.join(' ') || prompt('请输入药品名称：');
+                            if (!drugName) return;
+                            await aiQuickAction('advice');
+                            return;
+                        }
+                        
+                        if (['analyze', 'trend', 'report'].includes(command.cmd)) {
+                            await aiQuickAction(command.cmd);
+                            return;
+                        }
+                    }
+                    
+                    // 检查是否是图表相关查询
+                    const chartKeywords = ['柱状图', '饼图', '饼状图', '折线图', '图表', '统计图', 
+                                          '报告类型', '药品统计', '药品TOP', '不良反应统计', 
+                                          '月度统计', '趋势图', '分布图', 'TOP10', 'top10'];
+                    const isChartQuery = chartKeywords.some(k => message.toLowerCase().includes(k.toLowerCase()));
+                    
+                    aiMessages.value.push({ role: 'user', content: message });
+                    aiInput.value = '';
+                    aiLoading.value = true;
+                    scrollToBottom();
+                    
+                    try {
+                        if (isChartQuery) {
+                            // 调用智能图表查询
+                            const response = await fetch('http://localhost:5001/api/ai/smart-query', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    query: message,
+                                    dataset: aiDataset.value,
+                                    start_month: aiStartMonth.value,
+                                    end_month: aiEndMonth.value
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                const msgIdx = aiMessages.value.length;
+                                aiMessages.value.push({ 
+                                    role: 'assistant', 
+                                    content: result.analysis || result.description,
+                                    chartData: {
+                                        type: result.chart_type,
+                                        title: result.title,
+                                        labels: result.labels,
+                                        values: result.values
+                                    }
+                                });
+                                // 渲染图表
+                                renderChart(`chart-${msgIdx}`, {
+                                    type: result.chart_type,
+                                    title: result.title,
+                                    labels: result.labels,
+                                    values: result.values
+                                });
+                            } else {
+                                aiMessages.value.push({ 
+                                    role: 'assistant', 
+                                    content: `抱歉，${result.message || '无法生成图表'}` 
+                                });
+                            }
+                        } else {
+                            // 普通对话
+                            const response = await fetch('http://localhost:5001/api/ai/chat', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    message: message,
+                                    history: aiMessages.value.slice(-20)
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                aiMessages.value.push({ role: 'assistant', content: result.reply });
+                            } else {
+                                aiMessages.value.push({ 
+                                    role: 'assistant', 
+                                    content: `抱歉，${result.message || '服务暂时不可用，请稍后重试。'}` 
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        aiMessages.value.push({ 
+                            role: 'assistant', 
+                            content: '网络连接失败，请检查网络后重试。' 
+                        });
+                    } finally {
+                        aiLoading.value = false;
+                        scrollToBottom();
+                    }
+                };
+
+                onMounted(() => {
+                    // 检查是否已登录
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    
+                    const storedUser = localStorage.getItem('user');
+                    if (storedUser) {
+                        try { user.value = JSON.parse(storedUser); } catch (e) {}
+                    }
+                    
+                    // 监听 iframe 内页面的跳转请求
+                    window.addEventListener('message', (event) => {
+                        if (event.data && event.data.action === 'loadPage') {
+                            loadPage(event.data.page);
+                        }
+                    });
+                });
+                
+                // 暴露 loadPage 给 iframe 调用
+                window.loadPage = (page) => loadPage(page);
+
+                return { 
+                    currentPage, pageSrc, user, contentFrame, loadPage, logout,
+                    aiChatOpen, aiInput, aiMessages, aiLoading, lastReportContent,
+                    isMaximized, aiWindowStyle, aiStartMonth, aiEndMonth, aiDataset,
+                    toggleAiChat, formatMessage, sendAiMessage, aiQuickAction, exportReportWord,
+                    toggleMaximize, exportChart, exportToWord
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

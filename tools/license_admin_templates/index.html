@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>激活码生成工具</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+        <header class="header">
+            <div>
+                <h1>激活码生成工具</h1>
+                <p class="subtitle">厂商专用 · 离线签名 · 一码一机</p>
+            </div>
+            <div class="badge">本地服务</div>
+        </header>
+
+        {% if require_login and not authenticated %}
+        <section class="card">
+            <h2>管理员登录</h2>
+            <p class="hint">已启用访问密码，请输入后继续。</p>
+            <label for="password">访问密码</label>
+            <input id="password" type="password" placeholder="LICENSE_ADMIN_PASSWORD">
+            <button id="loginBtn" class="btn primary">登录</button>
+            <div id="loginError" class="error" hidden></div>
+        </section>
+        {% else %}
+        <section class="card">
+            <h2>生成激活码</h2>
+            <p class="hint">输入用户发来的机器码与授权到期日，点击生成。</p>
+
+            <label for="machineId">机器码</label>
+            <input id="machineId" type="text" maxlength="32" placeholder="32 位十六进制，如 E1D15167DC4C3B8CEF6606D91317F780">
+
+            <label for="expireDate">到期日</label>
+            <input id="expireDate" type="date" value="{{ default_expire }}">
+
+            <div class="actions">
+                <button id="generateBtn" class="btn primary">生成激活码</button>
+                {% if require_login %}
+                <button id="logoutBtn" class="btn ghost">退出登录</button>
+                {% endif %}
+            </div>
+            <div id="formError" class="error" hidden></div>
+        </section>
+
+        <section id="resultCard" class="card result" hidden>
+            <h2>生成结果</h2>
+            <div class="result-row">
+                <span class="label">机器码</span>
+                <code id="resultMachineId"></code>
+            </div>
+            <div class="result-row">
+                <span class="label">到期日</span>
+                <code id="resultExpire"></code>
+            </div>
+            <div class="result-row block">
+                <span class="label">激活码</span>
+                <textarea id="resultCode" readonly rows="4"></textarea>
+            </div>
+            <button id="copyBtn" class="btn secondary">复制激活码</button>
+        </section>
+        {% endif %}
+
+        <footer class="footer">
+            <p>产品 ID：{{ product_id }} · 私钥仅存于本机 tools/private_key.pem</p>
+            <p>请勿将此服务暴露到公网；如需密码保护，启动前设置 LICENSE_ADMIN_PASSWORD</p>
+        </footer>
+    </div>
+
+    <script>
+        const requireLogin = {{ 'true' if require_login else 'false' }};
+        const authenticated = {{ 'true' if authenticated else 'false' }};
+
+        function showError(el, msg) {
+            el.textContent = msg;
+            el.hidden = false;
+        }
+
+        async function postJson(url, body) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body || {})
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || '请求失败');
+            return data;
+        }
+
+        document.getElementById('loginBtn')?.addEventListener('click', async () => {
+            const errorEl = document.getElementById('loginError');
+            errorEl.hidden = true;
+            try {
+                await postJson('/api/login', { password: document.getElementById('password').value });
+                location.reload();
+            } catch (e) {
+                showError(errorEl, e.message);
+            }
+        });
+
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            await postJson('/api/logout');
+            location.reload();
+        });
+
+        document.getElementById('generateBtn')?.addEventListener('click', async () => {
+            const errorEl = document.getElementById('formError');
+            const resultCard = document.getElementById('resultCard');
+            errorEl.hidden = true;
+            resultCard.hidden = true;
+
+            const machineId = document.getElementById('machineId').value.trim().toUpperCase();
+            const expire = document.getElementById('expireDate').value;
+
+            try {
+                const data = await postJson('/api/generate', { machine_id: machineId, expire });
+                document.getElementById('resultMachineId').textContent = data.machine_id;
+                document.getElementById('resultExpire').textContent = data.expire;
+                document.getElementById('resultCode').value = data.code;
+                resultCard.hidden = false;
+            } catch (e) {
+                showError(errorEl, e.message);
+            }
+        });
+
+        document.getElementById('copyBtn')?.addEventListener('click', async () => {
+            const code = document.getElementById('resultCode').value;
+            await navigator.clipboard.writeText(code);
+            const btn = document.getElementById('copyBtn');
+            const old = btn.textContent;
+            btn.textContent = '已复制';
+            setTimeout(() => { btn.textContent = old; }, 1500);
+        });
+    </script>
+</body>
+</html>

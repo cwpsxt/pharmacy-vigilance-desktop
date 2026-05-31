@@ -1,0 +1,4172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>药品不良反应数据分析系统 - 管理后台</title>
+	<link rel="stylesheet" href="/static/libs/element-ui/index.css" />
+	<style>
+		body { margin: 0; background: #f5f7fa; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+		.app { height: 100vh; }
+		.header { background: #409EFF; color: white; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+		.header h1 { margin: 0; font-size: 20px; font-weight: 500; }
+		.user-info { display: flex; align-items: center; gap: 15px; }
+		.main-container { display: flex; height: calc(100vh - 60px); }
+		.sidebar { width: 200px; background: white; border-right: 1px solid #e6e6e6; }
+		.content { flex: 1; padding: 20px; overflow-y: auto; }
+		.menu-item { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background-color 0.3s; }
+		.menu-item:hover { background-color: #f5f7fa; }
+		.menu-item.active { background-color: #409EFF; color: white; }
+		.content-section { display: none; }
+		.content-section.active { display: block; }
+		.upload-area { border: 2px dashed #d9d9d9; border-radius: 6px; padding: 40px; text-align: center; background: #fafafa; }
+		.upload-area:hover { border-color: #409EFF; }
+		.upload-icon { font-size: 48px; color: #c0c4cc; margin-bottom: 16px; }
+		.upload-text { color: #606266; margin-bottom: 8px; }
+		.upload-hint { color: #909399; font-size: 12px; }
+		.report-detail-dialog { width: 600px; }
+		.el-table { font-size: 13px; }
+		.el-table .el-table__header th { background-color: #fafafa; }
+		.filter-form { margin-bottom: 0; }
+		.filter-form .el-form-item { margin-bottom: 18px; }
+	</style>
+</head>
+<body>
+	<div id="app" class="app">
+		<div class="header">
+			<h1>药品不良反应数据分析系统</h1>
+			<div class="user-info">
+				<span>欢迎，{{ currentUser.username }}</span>
+				<el-button type="text" style="color: white;" @click="showPasswordDialog = true">修改密码</el-button>
+				<el-button type="text" style="color: white;" @click="logout">退出登录</el-button>
+			</div>
+		</div>
+		
+		<div class="main-container">
+			<div class="sidebar">
+				<div class="menu-item" :class="{ active: activeMenu === 'dashboard' }" @click="setActiveMenu('dashboard')">
+					<i class="el-icon-s-home"></i> 仪表板
+				</div>
+				<div class="menu-item" :class="{ active: activeMenu === 'data-import' }" @click="setActiveMenu('data-import')">
+					<i class="el-icon-upload"></i> 数据导入
+				</div>
+				<div class="menu-item" :class="{ active: activeMenu === 'data-management' }" @click="setActiveMenu('data-management')">
+					<i class="el-icon-s-order"></i> 数据管理
+				</div>
+				<div class="menu-item" :class="{ active: activeMenu === 'workload-management' }" @click="setActiveMenu('workload-management')">
+					<i class="el-icon-s-marketing"></i> 工作量数据管理
+				</div>
+				<div class="menu-item" :class="{ active: activeMenu === 'data-analysis' }" @click="setActiveMenu('data-analysis')">
+					<i class="el-icon-s-data"></i> 数据分析
+				</div>
+			</div>
+			
+			<div class="content">
+				<!-- 仪表板 -->
+				<div class="content-section" :class="{ active: activeMenu === 'dashboard' }">
+					<h2>系统概览</h2>
+					
+					<!-- 主要统计指标 -->
+					<el-row :gutter="20" style="margin-bottom: 20px;">
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 28px; color: #409EFF; margin-bottom: 8px; font-weight: bold;">{{ stats.totalRecords }}</div>
+									<div style="color: #606266; font-size: 14px;">总记录数</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 28px; color: #67C23A; margin-bottom: 8px; font-weight: bold;">{{ stats.todayImports }}</div>
+									<div style="color: #606266; font-size: 14px;">今日导入</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 28px; color: #E6A23C; margin-bottom: 8px; font-weight: bold;">{{ stats.pendingReviews }}</div>
+									<div style="color: #606266; font-size: 14px;">去重数据</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 28px; color: #F56C6C; margin-bottom: 8px; font-weight: bold;">{{ stats.alerts }}</div>
+									<div style="color: #606266; font-size: 14px;">严重警报</div>
+								</div>
+							</el-card>
+						</el-col>
+					</el-row>
+					
+					<!-- 次要统计指标 -->
+					<el-row :gutter="20" style="margin-bottom: 20px;">
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 24px; color: #909399; margin-bottom: 8px; font-weight: bold;">{{ stats.monthlyCount }}</div>
+									<div style="color: #606266; font-size: 14px;">本月新增</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 24px; color: #909399; margin-bottom: 8px; font-weight: bold;">{{ stats.pharmacistCount }}</div>
+									<div style="color: #606266; font-size: 14px;">药师上报</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card>
+								<div style="text-align: center;">
+									<div style="font-size: 24px; color: #909399; margin-bottom: 8px; font-weight: bold;">{{ stats.newReports }}</div>
+									<div style="color: #606266; font-size: 14px;">新的报告</div>
+								</div>
+							</el-card>
+						</el-col>
+						<el-col :span="6">
+							<el-card style="height: 100%;">
+								<div style="text-align: center;">
+									<div style="font-size: 16px; color: #606266; margin-bottom: 8px;">数据完整性</div>
+									<el-progress :percentage="Math.round((stats.pendingReviews / stats.totalRecords) * 100)" :color="getProgressColor((stats.pendingReviews / stats.totalRecords) * 100)"></el-progress>
+								</div>
+							</el-card>
+						</el-col>
+					</el-row>
+					
+					<!-- 图表展示 -->
+					<el-row :gutter="20">
+						<el-col :span="12">
+							<el-card>
+								<div slot="header">
+									<span style="font-weight: bold;">严重程度分布</span>
+								</div>
+								<el-table :data="stats.severityDistribution" style="width: 100%;" size="small">
+									<el-table-column prop="name" label="严重程度" width="100" align="center"></el-table-column>
+									<el-table-column prop="count" label="数量" width="80" align="center"></el-table-column>
+									<el-table-column prop="percentage" label="占比(%)" width="80" align="center"></el-table-column>
+									<el-table-column label="比例图" min-width="150">
+										<template slot-scope="scope">
+											<div style="display: flex; align-items: center;">
+												<div 
+													:style="{
+														width: scope.row.percentage + '%',
+														height: '20px',
+														backgroundColor: scope.row.name === '严重' ? '#F56C6C' : '#67C23A',
+														borderRadius: '10px',
+														minWidth: '2px'
+													}">
+												</div>
+												<span style="margin-left: 8px; font-size: 12px;">{{ scope.row.percentage }}%</span>
+											</div>
+										</template>
+									</el-table-column>
+								</el-table>
+							</el-card>
+						</el-col>
+						<el-col :span="12">
+							<el-card>
+								<div slot="header">
+									<span style="font-weight: bold;">科室分布</span>
+								</div>
+								<el-table :data="stats.departmentDistribution" style="width: 100%;" size="small">
+									<el-table-column prop="name" label="科室" width="100" align="center"></el-table-column>
+									<el-table-column prop="count" label="数量" width="80" align="center"></el-table-column>
+									<el-table-column label="比例图" min-width="150">
+										<template slot-scope="scope">
+											<div style="display: flex; align-items: center;">
+												<div 
+													:style="{
+														width: Math.max((scope.row.count / getMaxDepartmentCount()) * 100, 2) + '%',
+														height: '20px',
+														backgroundColor: scope.row.name === 'GCP' ? '#E6A23C' : '#409EFF',
+														borderRadius: '10px',
+														minWidth: '2px'
+													}">
+												</div>
+												<span style="margin-left: 8px; font-size: 12px;">{{ scope.row.count }}</span>
+											</div>
+										</template>
+									</el-table-column>
+								</el-table>
+							</el-card>
+						</el-col>
+					</el-row>
+					
+					<!-- 导入趋势 -->
+					<el-row :gutter="20" style="margin-top: 20px;">
+						<el-col :span="24">
+							<el-card>
+								<div slot="header">
+									<span style="font-weight: bold;">最近7天导入趋势</span>
+								</div>
+								<div style="position: relative; height: 180px; padding: 20px;">
+									<!-- 折线图容器 -->
+									<div style="position: relative; height: 120px; margin: 0 40px;">
+										<svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style="overflow: visible;">
+											<!-- 背景网格线 -->
+											<defs>
+												<pattern id="gridPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+													<path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f5f5f5" stroke-width="0.5"/>
+												</pattern>
+											</defs>
+											<rect width="100%" height="100%" fill="url(#gridPattern)" />
+											
+											<!-- 渐变填充 -->
+											<defs>
+												<linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+													<stop offset="0%" style="stop-color:#409EFF;stop-opacity:0.3" />
+													<stop offset="100%" style="stop-color:#409EFF;stop-opacity:0.05" />
+												</linearGradient>
+											</defs>
+											
+											<!-- 填充区域 -->
+											<polygon v-if="stats.importTrend && stats.importTrend.length > 0"
+												:points="getFillAreaPoints()" 
+												fill="url(#lineGradient)"
+											/>
+											
+											<!-- 折线 -->
+											<polyline v-if="stats.importTrend && stats.importTrend.length > 0"
+												:points="getLinePointsPercent()" 
+												fill="none" 
+												stroke="#409EFF" 
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												vector-effect="non-scaling-stroke"
+											/>
+										</svg>
+										
+										<!-- 数据点和标签（绝对定位） -->
+										<div v-for="(point, index) in getDataPointsPercent()" :key="index" 
+											:style="{
+												position: 'absolute',
+												left: point.x + '%',
+												top: point.y + '%',
+												transform: 'translate(-50%, -50%)'
+											}">
+											<!-- 数据点 -->
+											<div style="width: 8px; height: 8px; background: #409EFF; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+											<!-- 数据标签 -->
+											<div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #606266; font-weight: bold; background: white; padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+												{{ point.value }}
+											</div>
+										</div>
+										
+										<!-- Y轴标签 -->
+										<div style="position: absolute; left: -30px; top: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center;">
+											<span style="font-size: 10px; color: #909399;">{{ getMaxImportCount() }}</span>
+											<span style="font-size: 10px; color: #909399;">{{ Math.round(getMaxImportCount() / 2) }}</span>
+											<span style="font-size: 10px; color: #909399;">0</span>
+										</div>
+									</div>
+									
+									<!-- X轴日期标签 -->
+									<div style="display: flex; justify-content: space-between; margin-top: 15px; padding: 0 40px;">
+										<div v-for="day in stats.importTrend" :key="day.date" style="font-size: 12px; color: #909399; text-align: center; font-weight: 500;">
+											{{ day.date }}
+										</div>
+									</div>
+								</div>
+							</el-card>
+						</el-col>
+					</el-row>
+				</div>
+				
+				<!-- 数据导入 -->
+				<div class="content-section" :class="{ active: activeMenu === 'data-import' }">
+					<h2>数据导入</h2>
+					<el-card>
+						<div slot="header">
+							<span>Excel文件导入</span>
+						</div>
+						
+						<el-upload
+							class="upload-demo"
+							drag
+							:action="uploadUrl"
+							:headers="uploadHeaders"
+							:on-success="handleUploadSuccess"
+							:on-error="handleUploadError"
+							:before-upload="beforeUpload"
+							accept=".xlsx,.xls"
+							:file-list="fileList">
+							<div class="upload-area">
+								<i class="el-icon-upload upload-icon"></i>
+								<div class="upload-text">将文件拖到此处，或<em>点击上传</em></div>
+								<div class="upload-hint">只能上传 Excel 文件，且不超过 10MB</div>
+							</div>
+						</el-upload>
+						
+						<div style="margin-top: 20px;">
+							<h4>导入历史</h4>
+							<el-table :data="importHistory" style="width: 100%">
+								<el-table-column prop="filename" label="文件名"></el-table-column>
+								<el-table-column prop="uploadTime" label="上传时间"></el-table-column>
+								<el-table-column prop="recordCount" label="记录数"></el-table-column>
+								<el-table-column prop="status" label="状态">
+									<template slot-scope="scope">
+										<el-tag :type="scope.row.status === 'success' ? 'success' : 'danger'">
+											{{ scope.row.status === 'success' ? '成功' : '失败' }}
+										</el-tag>
+									</template>
+								</el-table-column>
+							</el-table>
+						</div>
+					</el-card>
+				</div>
+				
+				<!-- 数据管理 -->
+				<div class="content-section" :class="{ active: activeMenu === 'data-management' }">
+					<h2>数据管理</h2>
+					<el-card>
+						<div slot="header" style="display: flex; justify-content: space-between; align-items: center;">
+							<span>不良反应报告数据</span>
+							<div>
+								<el-input
+									v-model="searchText"
+									placeholder="搜索报告编码、药品名称等"
+									style="width: 300px; margin-right: 10px;"
+									@keyup.enter="searchReports">
+									<el-button slot="append" icon="el-icon-search" @click="searchReports"></el-button>
+								</el-input>
+								<el-select v-model="severityFilter" placeholder="严重程度" style="width: 120px;" @change="searchReports">
+									<el-option label="全部" value=""></el-option>
+									<el-option label="严重" value="严重"></el-option>
+									<el-option label="一般" value="一般"></el-option>
+								</el-select>
+							</div>
+						</div>
+
+						<div style="margin-bottom: 10px;">
+							<el-button type="danger" size="small" :disabled="selectedReports.length === 0" @click="batchDelete">
+								批量删除 ({{ selectedReports.length }})
+							</el-button>
+							<el-button type="danger" size="small" plain @click="clearAllData">
+								一键清空数据库
+							</el-button>
+						</div>
+
+						<el-table :data="reports" v-loading="reportsLoading" style="width: 100%" stripe @selection-change="handleSelectionChange">
+							<el-table-column type="selection" width="55"></el-table-column>
+							<el-table-column prop="report_code" label="报告表编码" width="180" show-overflow-tooltip></el-table-column>
+							<el-table-column prop="report_type_new" label="报告类型-新的" width="120">
+								<template slot-scope="scope">
+									{{ scope.row.report_type_new || '-' }}
+								</template>
+							</el-table-column>
+							<el-table-column prop="severity" label="报告类型-严重程度" width="140">
+								<template slot-scope="scope">
+									<el-tag :type="scope.row.severity === '严重' ? 'danger' : 'info'">
+										{{ scope.row.severity }}
+									</el-tag>
+								</template>
+							</el-table-column>
+							<el-table-column prop="medical_record_no" label="病历号/门诊号" width="140" show-overflow-tooltip></el-table-column>
+							<el-table-column prop="suspect_concurrent" label="怀疑/并用" width="100">
+								<template slot-scope="scope">
+									<el-tag :type="scope.row.suspect_concurrent === '怀疑' ? 'warning' : 'success'" size="small">
+										{{ scope.row.suspect_concurrent }}
+									</el-tag>
+								</template>
+							</el-table-column>
+							<el-table-column prop="generic_name" label="通用名称" width="180" show-overflow-tooltip></el-table-column>
+							<el-table-column prop="manufacturer" label="生产厂家" width="160" show-overflow-tooltip></el-table-column>
+							<el-table-column prop="adverse_reaction_name" label="不良反应名称" width="200" show-overflow-tooltip></el-table-column>
+							<el-table-column prop="reporter_profession" label="报告人职业" width="100"></el-table-column>
+							<el-table-column prop="reporter_signature" label="报告人签名" width="100"></el-table-column>
+							<el-table-column prop="national_center_receive_time" label="国家中心接收时间" width="160">
+								<template slot-scope="scope">
+									{{ formatDateTime(scope.row.national_center_receive_time) }}
+								</template>
+							</el-table-column>
+							<el-table-column label="操作" width="80" fixed="right">
+								<template slot-scope="scope">
+									<el-button size="mini" @click="viewReport(scope.row)">详情</el-button>
+								</template>
+							</el-table-column>
+						</el-table>
+						
+						<div style="margin-top: 20px; text-align: center;">
+							<el-pagination
+								@size-change="handleSizeChange"
+								@current-change="handleCurrentChange"
+								:current-page="currentPage"
+								:page-sizes="[10, 20, 50, 100]"
+								:page-size="pageSize"
+								layout="total, sizes, prev, pager, next, jumper"
+								:total="totalRecords">
+							</el-pagination>
+						</div>
+					</el-card>
+				</div>
+				
+				<!-- 工作量数据管理 -->
+				<div class="content-section" :class="{ active: activeMenu === 'workload-management' }">
+					<h2>工作量数据管理</h2>
+
+					<!-- 上传区域 -->
+					<el-card style="margin-bottom: 20px;">
+						<div slot="header">
+							<span>上传Excel文件</span>
+						</div>
+						<el-form :inline="true" style="margin-bottom: 20px;">
+							<el-form-item label="选择年份">
+								<el-select v-model="workloadYear" placeholder="请选择年份" style="width: 150px;">
+									<el-option label="2024年" :value="2024"></el-option>
+									<el-option label="2025年" :value="2025"></el-option>
+									<el-option label="2026年" :value="2026"></el-option>
+								</el-select>
+							</el-form-item>
+						</el-form>
+						<el-upload
+							class="upload-demo"
+							drag
+							action="/api/workload/upload"
+							:on-success="handleWorkloadUploadSuccess"
+							:on-error="handleWorkloadUploadError"
+							:before-upload="beforeWorkloadUpload"
+							:data="{ year: workloadYear }"
+							accept=".xlsx,.xls"
+							:headers="{ 'X-Requested-With': 'XMLHttpRequest' }"
+							:with-credentials="true">
+							<div class="upload-area">
+								<i class="el-icon-upload upload-icon"></i>
+								<div class="upload-text">将文件拖到此处，或<em>点击上传</em></div>
+								<div class="upload-hint">仅支持 Excel 文件(.xlsx, .xls)</div>
+							</div>
+						</el-upload>
+					</el-card>
+					
+					<!-- 数据展示 -->
+					<el-card>
+						<!-- 查询条件 -->
+						<el-form :inline="true" style="margin-bottom: 20px;">
+							<el-form-item label="年份">
+								<el-select v-model="workloadQueryYear" placeholder="请选择年份" clearable style="width: 150px;" @change="filterWorkloadData">
+									<el-option label="2024年" :value="2024"></el-option>
+									<el-option label="2025年" :value="2025"></el-option>
+									<el-option label="2026年" :value="2026"></el-option>
+								</el-select>
+							</el-form-item>
+							<el-form-item label="月份区间">
+								<el-select v-model="workloadQueryMonthStart" placeholder="起始月份" clearable style="width: 120px;" @change="filterWorkloadData">
+									<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+								</el-select>
+								<span style="margin: 0 10px;">至</span>
+								<el-select v-model="workloadQueryMonthEnd" placeholder="结束月份" clearable style="width: 120px;" @change="filterWorkloadData">
+									<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+								</el-select>
+							</el-form-item>
+							<el-form-item>
+								<el-button type="primary" @click="filterWorkloadData">查询</el-button>
+								<el-button @click="resetWorkloadFilter">重置</el-button>
+							</el-form-item>
+						</el-form>
+
+						<el-tabs v-model="activeWorkloadTab">
+							<el-tab-pane label="样品测定量" name="sample">
+								<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+									<span>共 {{ filteredWorkloadData.sample.length }} 条记录</span>
+									<el-button type="danger" size="small" icon="el-icon-delete" @click="deleteWorkloadData('sample')" :disabled="workloadData.sample.length === 0">
+										删除所有数据
+									</el-button>
+								</div>
+								<el-table :data="paginatedWorkloadData.sample" border stripe style="width: 100%">
+									<el-table-column prop="project_name" label="项目名称" width="150"></el-table-column>
+									<el-table-column prop="measurement_content" label="测定内容" width="150"></el-table-column>
+									<el-table-column prop="year" label="年份" width="80"></el-table-column>
+									<el-table-column prop="month_1" label="1月" width="80"></el-table-column>
+									<el-table-column prop="month_2" label="2月" width="80"></el-table-column>
+									<el-table-column prop="month_3" label="3月" width="80"></el-table-column>
+									<el-table-column prop="month_4" label="4月" width="80"></el-table-column>
+									<el-table-column prop="month_5" label="5月" width="80"></el-table-column>
+									<el-table-column prop="month_6" label="6月" width="80"></el-table-column>
+									<el-table-column prop="month_7" label="7月" width="80"></el-table-column>
+									<el-table-column prop="month_8" label="8月" width="80"></el-table-column>
+									<el-table-column prop="month_9" label="9月" width="80"></el-table-column>
+									<el-table-column prop="month_10" label="10月" width="80"></el-table-column>
+									<el-table-column prop="month_11" label="11月" width="80"></el-table-column>
+									<el-table-column prop="month_12" label="12月" width="80"></el-table-column>
+									<el-table-column prop="total" label="总计" width="100"></el-table-column>
+								</el-table>
+								<div style="margin-top: 20px; text-align: right;">
+									<el-pagination
+										@current-change="handleWorkloadPageChange('sample', $event)"
+										:current-page="workloadPagination.sample.currentPage"
+										:page-size="workloadPagination.sample.pageSize"
+										layout="total, prev, pager, next, jumper"
+										:total="filteredWorkloadData.sample.length">
+									</el-pagination>
+								</div>
+							</el-tab-pane>
+
+							<el-tab-pane label="收入" name="income">
+								<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+									<span>共 {{ filteredWorkloadData.income.length }} 条记录</span>
+									<el-button type="danger" size="small" icon="el-icon-delete" @click="deleteWorkloadData('income')" :disabled="workloadData.income.length === 0">
+										删除所有数据
+									</el-button>
+								</div>
+								<el-table :data="paginatedWorkloadData.income" border stripe style="width: 100%">
+									<el-table-column prop="project_name" label="项目名称" width="150"></el-table-column>
+									<el-table-column prop="measurement_content" label="测定内容" width="150"></el-table-column>
+									<el-table-column prop="year" label="年份" width="80"></el-table-column>
+									<el-table-column prop="month_1" label="1月" width="80"></el-table-column>
+									<el-table-column prop="month_2" label="2月" width="80"></el-table-column>
+									<el-table-column prop="month_3" label="3月" width="80"></el-table-column>
+									<el-table-column prop="month_4" label="4月" width="80"></el-table-column>
+									<el-table-column prop="month_5" label="5月" width="80"></el-table-column>
+									<el-table-column prop="month_6" label="6月" width="80"></el-table-column>
+									<el-table-column prop="month_7" label="7月" width="80"></el-table-column>
+									<el-table-column prop="month_8" label="8月" width="80"></el-table-column>
+									<el-table-column prop="month_9" label="9月" width="80"></el-table-column>
+									<el-table-column prop="month_10" label="10月" width="80"></el-table-column>
+									<el-table-column prop="month_11" label="11月" width="80"></el-table-column>
+									<el-table-column prop="month_12" label="12月" width="80"></el-table-column>
+									<el-table-column prop="total" label="总计" width="100"></el-table-column>
+								</el-table>
+								<div style="margin-top: 20px; text-align: right;">
+									<el-pagination
+										@current-change="handleWorkloadPageChange('income', $event)"
+										:current-page="workloadPagination.income.currentPage"
+										:page-size="workloadPagination.income.pageSize"
+										layout="total, prev, pager, next, jumper"
+										:total="filteredWorkloadData.income.length">
+									</el-pagination>
+								</div>
+							</el-tab-pane>
+
+							<el-tab-pane label="危急值" name="critical">
+								<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+									<span>共 {{ filteredWorkloadData.critical.length }} 条记录</span>
+									<el-button type="danger" size="small" icon="el-icon-delete" @click="deleteWorkloadData('critical')" :disabled="workloadData.critical.length === 0">
+										删除所有数据
+									</el-button>
+								</div>
+								<el-table :data="paginatedWorkloadData.critical" border stripe style="width: 100%">
+									<el-table-column prop="project_name" label="项目名称" width="150"></el-table-column>
+									<el-table-column prop="measurement_content" label="测定内容" width="150"></el-table-column>
+									<el-table-column prop="year" label="年份" width="80"></el-table-column>
+									<el-table-column prop="month_1" label="1月" width="80"></el-table-column>
+									<el-table-column prop="month_2" label="2月" width="80"></el-table-column>
+									<el-table-column prop="month_3" label="3月" width="80"></el-table-column>
+									<el-table-column prop="month_4" label="4月" width="80"></el-table-column>
+									<el-table-column prop="month_5" label="5月" width="80"></el-table-column>
+									<el-table-column prop="month_6" label="6月" width="80"></el-table-column>
+									<el-table-column prop="month_7" label="7月" width="80"></el-table-column>
+									<el-table-column prop="month_8" label="8月" width="80"></el-table-column>
+									<el-table-column prop="month_9" label="9月" width="80"></el-table-column>
+									<el-table-column prop="month_10" label="10月" width="80"></el-table-column>
+									<el-table-column prop="month_11" label="11月" width="80"></el-table-column>
+									<el-table-column prop="month_12" label="12月" width="80"></el-table-column>
+									<el-table-column prop="total" label="总计" width="100"></el-table-column>
+								</el-table>
+								<div style="margin-top: 20px; text-align: right;">
+									<el-pagination
+										@current-change="handleWorkloadPageChange('critical', $event)"
+										:current-page="workloadPagination.critical.currentPage"
+										:page-size="workloadPagination.critical.pageSize"
+										layout="total, prev, pager, next, jumper"
+										:total="filteredWorkloadData.critical.length">
+									</el-pagination>
+								</div>
+							</el-tab-pane>
+						</el-tabs>
+					</el-card>
+
+					<!-- 数据可视化 -->
+					<el-card style="margin-top: 20px;">
+						<div slot="header">
+							<span>数据可视化</span>
+						</div>
+
+						<!-- 可视化查询条件 -->
+						<el-form :inline="true" style="margin-bottom: 20px;">
+							<el-form-item label="年度">
+								<el-select v-model="visualQueryYear" placeholder="请选择年度" style="width: 150px;">
+									<el-option label="2024年" :value="2024"></el-option>
+									<el-option label="2025年" :value="2025"></el-option>
+									<el-option label="2026年" :value="2026"></el-option>
+								</el-select>
+							</el-form-item>
+							<el-form-item label="月份区间">
+								<el-select v-model="visualMonthStart" placeholder="起始月份" style="width: 120px;">
+									<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+								</el-select>
+								<span style="margin: 0 10px;">至</span>
+								<el-select v-model="visualMonthEnd" placeholder="结束月份" style="width: 120px;">
+									<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+								</el-select>
+							</el-form-item>
+							<el-form-item>
+								<el-button type="primary" @click="generateQuarterlyChart">生成图表</el-button>
+							</el-form-item>
+						</el-form>
+
+						<!-- 总体监测情况汇报 -->
+						<div style="margin-top: 30px;">
+							<el-card>
+								<div slot="header">
+									<span>总体监测情况汇报</span>
+								</div>
+								<el-form :inline="true" style="margin-bottom: 20px;">
+									<el-form-item label="年度">
+										<el-select v-model="overallQueryYear" placeholder="请选择年度" style="width: 150px;">
+											<el-option label="2024年" :value="2024"></el-option>
+											<el-option label="2025年" :value="2025"></el-option>
+											<el-option label="2026年" :value="2026"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item label="月份区间">
+										<el-select v-model="overallMonthStart" placeholder="起始月份" style="width: 120px;">
+											<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+										</el-select>
+										<span style="margin: 0 10px;">至</span>
+										<el-select v-model="overallMonthEnd" placeholder="结束月份" style="width: 120px;">
+											<el-option v-for="month in 12" :key="month" :label="month + '月'" :value="month"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item>
+										<el-button type="primary" @click="generateOverallChart">生成图表</el-button>
+									</el-form-item>
+								</el-form>
+
+								<!-- 图表展示区域 -->
+								<div v-if="overallChartData.length > 0" style="margin-top: 20px;">
+									<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+										<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">样品测定量与收入月度趋势</h3>
+										<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('overall')">导出</el-button>
+									</div>
+									<div id="overallChart" style="padding: 20px 10px 40px 70px; border: 1px solid #eee; border-radius: 4px; background: #fff; position: relative; height: 450px;">
+										<!-- Y轴（左侧-样品数量） -->
+										<div style="position: absolute; left: 70px; top: 40px; bottom: 80px; width: 2px; background: #333;"></div>
+										<div style="position: absolute; left: 5px; top: 35px; font-size: 12px; color: #333; font-weight: bold;">样品数量</div>
+
+										<!-- Y轴刻度（左侧） -->
+										<div v-for="i in 5" :key="'y-left-' + i" style="position: absolute; font-size: 10px; color: #666; text-align: right;" :style="{ left: '5px', bottom: (80 + (320 / 5) * i) + 'px', width: '55px' }">
+											{{ Math.round(maxOverallSample / 5 * i) }}
+										</div>
+
+										<!-- Y轴（右侧-收入） -->
+										<div style="position: absolute; right: 10px; top: 40px; bottom: 80px; width: 2px; background: #333;"></div>
+										<div style="position: absolute; right: 5px; top: 35px; font-size: 12px; color: #333; font-weight: bold;">收入(元)</div>
+
+										<!-- Y轴刻度（右侧） -->
+										<div v-for="i in 5" :key="'y-right-' + i" style="position: absolute; font-size: 9px; color: #666; text-align: left;" :style="{ right: '20px', bottom: (80 + (320 / 5) * i) + 'px', width: '60px' }">
+											{{ formatMoney(Math.round(maxOverallIncome / 5 * i)) }}
+										</div>
+
+										<!-- Y轴刻度线 -->
+										<div v-for="i in 5" :key="'y-line-' + i" style="position: absolute; left: 70px; right: 10px; height: 1px; background: #eee;" :style="{ bottom: (80 + (320 / 5) * i) + 'px' }"></div>
+
+										<!-- 图表容器 -->
+										<div style="position: absolute; left: 70px; right: 10px; top: 40px; bottom: 80px;">
+											<!-- 柱状图 -->
+											<div style="display: flex; align-items: flex-end; justify-content: space-around; height: 100%; position: relative;">
+												<div v-for="(item, index) in overallChartData" :key="'bar-' + index" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 5px;">
+													<!-- 柱子 -->
+													<div style="width: 100%; max-width: 40px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+														:style="{ height: getOverallBarHeight(item.sampleCount) + '%', minHeight: '5px' }">
+														<!-- 数值标签 -->
+														<div style="position: absolute; width: 100px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 10px; font-weight: bold; color: #409EFF; white-space: nowrap;"
+															:style="{ top: item.sampleCount > 0 ? '-18px' : '2px' }">
+															{{ item.sampleCount }}
+														</div>
+													</div>
+												</div>
+											</div>
+
+											<!-- 折线图 -->
+											<svg style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none;" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+												<!-- 折线 -->
+												<polyline v-if="overallChartData.length > 0"
+													:points="getOverallLinePoints()"
+													fill="none"
+													stroke="#67C23A"
+													stroke-width="3"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													vector-effect="non-scaling-stroke"
+												/>
+												<!-- 数据点 -->
+												<g v-for="(point, index) in getOverallDataPoints()" :key="'point-' + index">
+													<circle :cx="point.x + '%'" :cy="point.y + '%'" r="4" fill="#67C23A" stroke="white" stroke-width="2"/>
+													<!-- 数值标签 -->
+													<text :x="point.x + '%'" :y="point.y + '%'" dy="-10" text-anchor="middle" font-size="10" font-weight="bold" fill="#67C23A">
+														{{ formatMoney(point.value) }}
+													</text>
+												</g>
+											</svg>
+										</div>
+
+										<!-- X轴 -->
+										<div style="position: absolute; left: 70px; right: 10px; bottom: 80px; height: 2px; background: #333;"></div>
+
+										<!-- X轴标签 -->
+										<div style="position: absolute; left: 70px; right: 10px; bottom: 50px; display: flex; justify-content: space-around;">
+											<div v-for="(item, index) in overallChartData" :key="'label-' + index" style="font-size: 11px; color: #333; font-weight: bold; text-align: center;">
+												{{ item.month }}月
+											</div>
+										</div>
+									</div>
+
+									<!-- 图例 -->
+									<div style="display: flex; justify-content: center; margin-top: 15px; gap: 30px;">
+										<div style="display: flex; align-items: center;">
+											<div style="width: 20px; height: 14px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 2px; margin-right: 8px;"></div>
+											<span style="font-size: 12px; color: #666;">样品测定量</span>
+										</div>
+										<div style="display: flex; align-items: center;">
+											<div style="width: 20px; height: 3px; background: #67C23A; border-radius: 2px; margin-right: 8px;"></div>
+											<span style="font-size: 12px; color: #666;">收入</span>
+										</div>
+									</div>
+								</div>
+
+								<div v-else style="text-align: center; padding: 60px 0; color: #999;">
+									<i class="el-icon-data-line" style="font-size: 64px; margin-bottom: 20px; display: block;"></i>
+									<p>请选择年度和月份区间，点击"生成图表"查看总体监测情况</p>
+								</div>
+							</el-card>
+						</div>
+
+						<!-- 图表容器：左右并排布局 -->
+						<div v-if="quarterlyChartData.length > 0 || incomeChartData.length > 0" style="margin-top: 30px; display: flex; gap: 20px;">
+							<!-- 样品测定量季度对比柱状图 -->
+							<div v-if="quarterlyChartData.length > 0" style="flex: 1;">
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+									<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">样品测定量季度对比</h3>
+									<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('sample')">导出</el-button>
+								</div>
+								<div id="sampleChart" style="display: flex; justify-content: center; align-items: flex-end; height: 450px; padding: 20px 10px 40px 70px; border: 1px solid #eee; border-radius: 4px; position: relative; background: #fff;">
+									<!-- Y轴 -->
+									<div style="position: absolute; left: 70px; top: 40px; bottom: 80px; width: 2px; background: #333;"></div>
+									<div style="position: absolute; left: 5px; top: 35px; font-size: 12px; color: #333; font-weight: bold;">数量</div>
+
+									<!-- Y轴刻度 -->
+									<div v-for="i in 5" :key="'y-' + i" style="position: absolute; right: auto; font-size: 10px; color: #666; text-align: right;" :style="{ left: '5px', bottom: (80 + (320 / 5) * i) + 'px', width: '55px' }">
+										{{ Math.round(maxQuarterlyValue / 5 * i) }}
+									</div>
+									<!-- Y轴刻度线 -->
+									<div v-for="i in 5" :key="'y-line-' + i" style="position: absolute; left: 70px; right: 10px; height: 1px; background: #eee;" :style="{ bottom: (80 + (320 / 5) * i) + 'px' }"></div>
+
+									<!-- 柱状图组 -->
+									<div v-for="(item, index) in quarterlyChartData" :key="index" style="display: flex; flex-direction: column; align-items: center; margin: 0 15px; position: relative;">
+										<div style="display: flex; align-items: flex-end; height: 320px;">
+											<!-- 当前季度柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getBarHeight(item.currentQuarter) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 100px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: bold; color: #409EFF; white-space: nowrap;"
+														:style="{ top: item.currentQuarter > 0 ? '-20px' : '5px' }">
+														{{ item.currentQuarter }}
+													</div>
+												</div>
+											</div>
+
+											<!-- 上个季度柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #67C23A 0%, #85CE61 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getBarHeight(item.previousQuarter) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 100px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: bold; color: #67C23A; white-space: nowrap;"
+														:style="{ top: item.previousQuarter > 0 ? '-20px' : '5px' }">
+														{{ item.previousQuarter }}
+													</div>
+												</div>
+											</div>
+
+											<!-- 去年同期柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #E6A23C 0%, #F0B860 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getBarHeight(item.lastYearSame) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 100px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: bold; color: #E6A23C; white-space: nowrap;"
+														:style="{ top: item.lastYearSame > 0 ? '-20px' : '5px' }">
+														{{ item.lastYearSame }}
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 标签 -->
+										<div style="display: flex; gap: 20px; margin-top: 6px;">
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">{{ item.currentQuarterName }}</div>
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">{{ item.previousQuarterName }}</div>
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">去年同期</div>
+										</div>
+
+										<!-- X轴标签 -->
+										<div style="margin-top: 8px; font-size: 12px; font-weight: bold; color: #333;">
+											{{ item.currentQuarterYear }}年
+										</div>
+									</div>
+
+									<!-- X轴 -->
+									<div style="position: absolute; left: 70px; right: 10px; bottom: 80px; height: 2px; background: #333;"></div>
+								</div>
+
+								<!-- 图例 -->
+								<div style="display: flex; justify-content: center; margin-top: 15px; gap: 20px;">
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">{{ visualMonthStart === visualMonthEnd ? '当前月份' : '当前季度' }}({{ visualQueryYear }}年)</span>
+									</div>
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #67C23A 0%, #85CE61 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">{{ visualMonthStart === visualMonthEnd ? '上个月' : '上个季度' }}</span>
+									</div>
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #E6A23C 0%, #F0B860 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">去年同期({{ visualQueryYear - 1 }}年)</span>
+									</div>
+								</div>
+							</div>
+
+							<!-- 收入季度对比柱状图 -->
+							<div v-if="incomeChartData.length > 0" style="flex: 1;">
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+									<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">收入季度对比</h3>
+									<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('income')">导出</el-button>
+								</div>
+								<div id="incomeChart" style="display: flex; justify-content: center; align-items: flex-end; height: 450px; padding: 20px 10px 40px 70px; border: 1px solid #eee; border-radius: 4px; position: relative; background: #fff;">
+									<!-- Y轴 -->
+									<div style="position: absolute; left: 70px; top: 40px; bottom: 80px; width: 2px; background: #333;"></div>
+									<div style="position: absolute; left: 5px; top: 35px; font-size: 12px; color: #333; font-weight: bold;">金额</div>
+
+									<!-- Y轴刻度 -->
+									<div v-for="i in 5" :key="'y-income-' + i" style="position: absolute; right: auto; font-size: 9px; color: #666; text-align: right;" :style="{ left: '5px', bottom: (80 + (320 / 5) * i) + 'px', width: '55px' }">
+										{{ formatMoney(Math.round(maxIncomeValue / 5 * i)) }}
+									</div>
+									<!-- Y轴刻度线 -->
+									<div v-for="i in 5" :key="'y-income-line-' + i" style="position: absolute; left: 70px; right: 10px; height: 1px; background: #eee;" :style="{ bottom: (80 + (320 / 5) * i) + 'px' }"></div>
+
+									<!-- 柱状图组 -->
+									<div v-for="(item, index) in incomeChartData" :key="index" style="display: flex; flex-direction: column; align-items: center; margin: 0 15px; position: relative;">
+										<div style="display: flex; align-items: flex-end; height: 320px;">
+											<!-- 当前季度柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getIncomeBarHeight(item.currentQuarter) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 80px; right: 5px; text-align: right; font-size: 10px; font-weight: bold; color: #409EFF; white-space: nowrap;"
+														:style="{ top: item.currentQuarter > 0 ? '-20px' : '5px' }">
+														{{ formatMoney(item.currentQuarter) }}
+													</div>
+												</div>
+											</div>
+
+											<!-- 上个季度柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #67C23A 0%, #85CE61 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getIncomeBarHeight(item.previousQuarter) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 80px; left: 5px; text-align: left; font-size: 10px; font-weight: bold; color: #67C23A; white-space: nowrap;"
+														:style="{ top: item.previousQuarter > 0 ? '-20px' : '5px' }">
+														{{ formatMoney(item.previousQuarter) }}
+													</div>
+												</div>
+											</div>
+
+											<!-- 去年同期柱子 -->
+											<div style="margin: 0 10px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+												<div style="width: 40px; background: linear-gradient(180deg, #E6A23C 0%, #F0B860 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+													:style="{ height: getIncomeBarHeight(item.lastYearSame) + 'px', minHeight: '30px' }">
+													<div style="position: absolute; width: 80px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 10px; font-weight: bold; color: #E6A23C; white-space: nowrap;"
+														:style="{ top: item.lastYearSame > 0 ? '-20px' : '5px' }">
+														{{ formatMoney(item.lastYearSame) }}
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 标签 -->
+										<div style="display: flex; gap: 20px; margin-top: 6px;">
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">{{ item.currentQuarterName }}</div>
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">{{ item.previousQuarterName }}</div>
+											<div style="font-size: 10px; color: #666; width: 40px; text-align: center; white-space: nowrap;">去年同期</div>
+										</div>
+
+										<!-- X轴标签 -->
+										<div style="margin-top: 8px; font-size: 12px; font-weight: bold; color: #333;">
+											{{ item.currentQuarterYear }}年
+										</div>
+									</div>
+
+									<!-- X轴 -->
+									<div style="position: absolute; left: 70px; right: 10px; bottom: 80px; height: 2px; background: #333;"></div>
+								</div>
+
+								<!-- 图例 -->
+								<div style="display: flex; justify-content: center; margin-top: 15px; gap: 20px;">
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #409EFF 0%, #66B1FF 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">{{ visualMonthStart === visualMonthEnd ? '当前月份' : '当前季度' }}({{ visualQueryYear }}年)</span>
+									</div>
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #67C23A 0%, #85CE61 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">{{ visualMonthStart === visualMonthEnd ? '上个月' : '上个季度' }}</span>
+									</div>
+									<div style="display: flex; align-items: center;">
+										<div style="width: 16px; height: 16px; background: linear-gradient(180deg, #E6A23C 0%, #F0B860 100%); border-radius: 2px; margin-right: 6px;"></div>
+										<span style="font-size: 12px; color: #666;">去年同期({{ visualQueryYear - 1 }}年)</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- 项目数据对比：独立筛选和展示 -->
+						<div style="margin-top: 30px;">
+							<!-- 项目筛选条件 -->
+							<el-card>
+								<div slot="header">
+									<span>项目数据对比</span>
+								</div>
+								<el-form :inline="true" style="margin-bottom: 20px;">
+									<el-form-item label="年度">
+										<el-select v-model="projectQueryYear" placeholder="请选择年度" style="width: 150px;">
+											<el-option label="2024年" :value="2024"></el-option>
+											<el-option label="2025年" :value="2025"></el-option>
+											<el-option label="2026年" :value="2026"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item label="季度">
+										<el-select v-model="projectQueryQuarter" placeholder="请选择季度" style="width: 150px;">
+											<el-option label="第一季度" :value="1"></el-option>
+											<el-option label="第二季度" :value="2"></el-option>
+											<el-option label="第三季度" :value="3"></el-option>
+											<el-option label="第四季度" :value="4"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item>
+										<el-button type="primary" @click="generateProjectCharts">生成图表</el-button>
+									</el-form-item>
+								</el-form>
+
+								<!-- 图表展示区域 -->
+								<div v-if="projectIncomeChartData.length > 0 || projectSampleChartData.length > 0" style="display: flex; gap: 20px;">
+									<!-- 项目收入横向柱状图 -->
+									<div v-if="projectIncomeChartData.length > 0" style="flex: 1;">
+										<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+											<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">各项目总收入对比</h3>
+											<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('project')">导出</el-button>
+										</div>
+								<div id="projectChart" style="padding: 20px; border: 1px solid #eee; border-radius: 4px; background: #fff; position: relative; min-height: 400px;">
+									<!-- Y轴标签 -->
+									<div style="position: absolute; left: 10px; top: 15px; font-size: 12px; color: #333; font-weight: bold;">项目名称</div>
+
+									<!-- 项目列表 -->
+									<div style="margin-left: 100px; margin-right: 80px; margin-top: 10px;">
+										<div v-for="(item, index) in projectIncomeChartData" :key="index" style="display: flex; align-items: center; margin-bottom: 10px;">
+											<!-- 项目名称 -->
+											<div style="width: 100px; text-align: right; padding-right: 12px; font-size: 11px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+												{{ item.projectName }}
+											</div>
+
+											<!-- 柱子容器 -->
+											<div style="flex: 1; position: relative; height: 20px; display: flex; align-items: center;">
+												<!-- 背景网格线 -->
+												<div style="position: absolute; left: 0; right: 0; height: 100%; display: flex;">
+													<div v-for="i in 5" :key="'grid-' + i" style="flex: 1; border-right: 1px solid #eee;"></div>
+												</div>
+
+												<!-- 柱子 -->
+												<div style="background: linear-gradient(90deg, #409EFF 0%, #66B1FF 100%); height: 14px; border-radius: 0 3px 3px 0; position: relative; transition: all 0.3s; min-width: 2px;"
+													:style="{ width: getProjectBarWidth(item.income) + '%' }">
+													<!-- 数值标签 -->
+													<div style="position: absolute; right: -5px; top: 50%; transform: translateY(-50%) translateX(100%); font-size: 10px; font-weight: bold; color: #409EFF; white-space: nowrap; padding-left: 6px;">
+														{{ formatMoney(item.income) }}
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- X轴刻度 -->
+									<div style="margin-left: 112px; margin-right: 80px; margin-top: 10px; display: flex; justify-content: space-between; padding-right: 0;">
+										<span v-for="i in 6" :key="'scale-' + i" style="font-size: 9px; color: #666; flex: 1; text-align: center;">
+											{{ formatMoney(Math.round(maxProjectIncome / 5 * (i - 1))) }}
+										</span>
+									</div>
+								</div>
+							</div>
+
+							<!-- 项目样品测定量饼状图 -->
+							<div v-if="projectSampleChartData.length > 0" style="flex: 1;">
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+									<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">各项目样品测定量占比</h3>
+									<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('pie')">导出</el-button>
+								</div>
+								<div id="pieChart" style="padding: 20px; border: 1px solid #eee; border-radius: 4px; background: #fff; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+									<!-- 饼图SVG -->
+									<svg width="500" height="350" viewBox="-50 0 500 350" style="margin-bottom: 20px;">
+										<g transform="translate(200, 175)">
+											<!-- 饼图扇形 -->
+											<path v-for="(item, index) in projectSampleChartData" :key="'sector-' + index"
+												:d="item.path"
+												:fill="getPieColor(index)"
+												:stroke="'#fff'"
+												:stroke-width="2"
+												style="transition: all 0.3s; cursor: pointer;"
+												@mouseenter="item.hovered = true"
+												@mouseleave="item.hovered = false">
+												<title>{{ item.projectName }}: {{ item.count }}个 ({{ item.percentage.toFixed(1) }}%)</title>
+											</path>
+
+											<!-- 引导线 -->
+											<g v-for="(item, index) in projectSampleChartData" :key="'line-' + index">
+												<!-- 从扇形边缘到标签的直线 -->
+												<line :x1="item.lineStartX" :y1="item.lineStartY"
+													:x2="item.lineEndX" :y2="item.lineEndY"
+													stroke="#666" stroke-width="1" style="pointer-events: none;"/>
+											</g>
+
+											<!-- 百分比标签 -->
+											<text v-for="(item, index) in projectSampleChartData" :key="'label-' + index"
+												:x="item.labelX"
+												:y="item.labelY"
+												:text-anchor="item.labelAlign"
+												font-size="11"
+												font-weight="bold"
+												:fill="'#333'"
+												style="pointer-events: none;">
+												{{ item.percentage.toFixed(1) }}%
+											</text>
+										</g>
+									</svg>
+
+									<!-- 图例 -->
+									<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 100%;">
+										<div v-for="(item, index) in projectSampleChartData" :key="'legend-' + index" style="display: flex; align-items: center; min-width: 120px;">
+											<div :style="{ width: '12px', height: '12px', borderRadius: '2px', background: getPieColor(index), marginRight: '6px' }"></div>
+											<span style="font-size: 11px; color: #666;">{{ item.projectName }}: {{ item.count }}</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+								<div v-else style="text-align: center; padding: 60px 0; color: #999;">
+									<i class="el-icon-data-line" style="font-size: 64px; margin-bottom: 20px; display: block;"></i>
+									<p>请选择年度和季度，点击"生成图表"查看项目数据对比</p>
+								</div>
+							</el-card>
+						</div>
+
+						<!-- 危急值统计 -->
+						<div style="margin-top: 30px;">
+							<el-card>
+								<div slot="header">
+									<span>危急值统计</span>
+								</div>
+								<el-form :inline="true" style="margin-bottom: 20px;">
+									<el-form-item label="年度">
+										<el-select v-model="criticalQueryYear" placeholder="请选择年度" style="width: 150px;">
+											<el-option label="2024年" :value="2024"></el-option>
+											<el-option label="2025年" :value="2025"></el-option>
+											<el-option label="2026年" :value="2026"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item label="季度">
+										<el-select v-model="criticalQueryQuarter" placeholder="请选择季度" style="width: 150px;">
+											<el-option label="第一季度" :value="1"></el-option>
+											<el-option label="第二季度" :value="2"></el-option>
+											<el-option label="第三季度" :value="3"></el-option>
+											<el-option label="第四季度" :value="4"></el-option>
+										</el-select>
+									</el-form-item>
+									<el-form-item>
+										<el-button type="primary" @click="generateCriticalCharts">生成图表</el-button>
+									</el-form-item>
+								</el-form>
+
+								<!-- 图表展示区域 -->
+								<div v-if="criticalCompareChartData.length > 0 || criticalProjectChartData.length > 0" style="display: flex; gap: 20px;">
+									<!-- 季度对比柱状图 -->
+									<div v-if="criticalCompareChartData.length > 0" style="flex: 1;">
+										<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+											<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">危急值季度对比</h3>
+											<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('criticalCompare')">导出</el-button>
+										</div>
+										<div id="criticalCompareChart" style="display: flex; justify-content: center; align-items: flex-end; height: 450px; padding: 20px 10px 40px 70px; border: 1px solid #eee; border-radius: 4px; position: relative; background: #fff;">
+											<!-- Y轴 -->
+											<div style="position: absolute; left: 70px; top: 40px; bottom: 90px; width: 2px; background: #333;"></div>
+											<div style="position: absolute; left: 5px; top: 35px; font-size: 12px; color: #333; font-weight: bold;">数量</div>
+
+											<!-- Y轴刻度 -->
+											<div v-for="i in 5" :key="'y-critical-' + i" style="position: absolute; right: auto; font-size: 10px; color: #666; text-align: right;" :style="{ left: '5px', bottom: (90 + (310 / 5) * i) + 'px', width: '55px' }">
+												{{ Math.round(maxCriticalValue / 5 * i) }}
+											</div>
+											<!-- Y轴刻度线 -->
+											<div v-for="i in 5" :key="'y-critical-line-' + i" style="position: absolute; left: 70px; right: 10px; height: 1px; background: #eee;" :style="{ bottom: (90 + (310 / 5) * i) + 'px' }"></div>
+
+											<!-- 柱状图组 -->
+											<div v-for="(item, index) in criticalCompareChartData" :key="index" style="display: flex; flex-direction: column; align-items: center; margin: 0 30px; position: relative;">
+												<div style="display: flex; align-items: flex-end; height: 310px;">
+													<!-- 柱子 -->
+													<div style="margin: 0 5px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+														<div style="width: 60px; background: linear-gradient(180deg, #F56C6C 0%, #F78989 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s;"
+															:style="{ height: getCriticalBarHeight(item.value) + 'px', minHeight: '30px' }">
+															<div style="position: absolute; width: 100px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: bold; color: #F56C6C; white-space: nowrap;"
+																:style="{ top: item.value > 0 ? '-20px' : '5px' }">
+																{{ item.value }}
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<!-- 占位标签（保持与样品图表结构一致） -->
+												<div style="height: 24px; margin-top: 6px;"></div>
+
+												<!-- X轴标签 -->
+												<div style="margin-top: 8px; font-size: 12px; font-weight: bold; color: #333;">
+													{{ item.quarter }}
+												</div>
+											</div>
+
+											<!-- X轴 -->
+											<div style="position: absolute; left: 70px; right: 10px; bottom: 90px; height: 2px; background: #333;"></div>
+										</div>
+									</div>
+
+									<!-- 项目分布饼状图 -->
+									<div v-if="criticalProjectChartData.length > 0" style="flex: 1;">
+										<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+											<h3 style="text-align: center; flex: 1; margin: 0; font-size: 16px;">当前季度危急值项目分布</h3>
+											<el-button type="primary" size="mini" icon="el-icon-download" @click="exportChartAsImage('criticalProject')">导出</el-button>
+										</div>
+										<div id="criticalProjectChart" style="padding: 20px; border: 1px solid #eee; border-radius: 4px; background: #fff; min-height: 450px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+											<!-- 饼图SVG -->
+											<svg width="500" height="350" viewBox="-50 0 500 350" style="margin-bottom: 20px;">
+												<g transform="translate(200, 175)">
+													<!-- 饼图扇形 -->
+													<path v-for="(item, index) in criticalProjectChartData" :key="'sector-' + index"
+														:d="item.path"
+														:fill="getPieColor(index)"
+														:stroke="'#fff'"
+														:stroke-width="2"
+														style="transition: all 0.3s; cursor: pointer;">
+														<title>{{ item.projectName }}: {{ item.count }}个 ({{ item.percentage.toFixed(1) }}%)</title>
+													</path>
+
+													<!-- 引导线 -->
+													<g v-for="(item, index) in criticalProjectChartData" :key="'line-' + index">
+														<!-- 从扇形边缘到标签的直线 -->
+														<line :x1="item.lineStartX" :y1="item.lineStartY"
+															:x2="item.lineEndX" :y2="item.lineEndY"
+															stroke="#666" stroke-width="1" style="pointer-events: none;"/>
+													</g>
+
+													<!-- 百分比标签 -->
+													<text v-for="(item, index) in criticalProjectChartData" :key="'label-' + index"
+														:x="item.labelX"
+														:y="item.labelY"
+														:text-anchor="item.labelAlign"
+														font-size="11"
+														font-weight="bold"
+														:fill="'#333'"
+														style="pointer-events: none;">
+														{{ item.percentage.toFixed(1) }}%
+													</text>
+												</g>
+											</svg>
+
+											<!-- 图例 -->
+											<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 100%;">
+												<div v-for="(item, index) in criticalProjectChartData" :key="'legend-' + index" style="display: flex; align-items: center; min-width: 120px;">
+													<div :style="{ width: '12px', height: '12px', borderRadius: '2px', background: getPieColor(index), marginRight: '6px' }"></div>
+													<span style="font-size: 11px; color: #666;">{{ item.projectName }}: {{ item.count }}</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div v-else style="text-align: center; padding: 60px 0; color: #999;">
+									<i class="el-icon-data-line" style="font-size: 64px; margin-bottom: 20px; display: block;"></i>
+									<p>请选择年度和季度，点击"生成图表"查看危急值统计</p>
+								</div>
+							</el-card>
+						</div>
+
+						<div v-else style="text-align: center; padding: 60px 0; color: #999;">
+							<i class="el-icon-data-line" style="font-size: 64px; margin-bottom: 20px; display: block;"></i>
+							<p>请选择年度和月份区间，点击"生成图表"查看数据可视化</p>
+						</div>
+					</el-card>
+				</div>
+
+				<!-- 数据分析 -->
+				<div class="content-section" :class="{ active: activeMenu === 'data-analysis' }">
+					<h2>数据分析</h2>
+					<el-card>
+						<div slot="header">
+							<span>筛选条件</span>
+						</div>
+						
+						<!-- 筛选条件 -->
+						<el-form :inline="true" class="filter-form">
+							<el-form-item label="起始月份">
+								<el-select v-model="analysisFilters.startMonth" placeholder="选择起始月份" style="width: 150px;" @change="loadAnalysisData" clearable>
+									<el-option v-for="month in availableMonths" :key="month.value" :label="month.label" :value="month.value"></el-option>
+								</el-select>
+							</el-form-item>
+
+							<el-form-item label="结束月份">
+								<el-select v-model="analysisFilters.endMonth" placeholder="选择结束月份" style="width: 150px;" @change="loadAnalysisData" clearable>
+									<el-option v-for="month in availableMonths" :key="month.value" :label="month.label" :value="month.value"></el-option>
+								</el-select>
+							</el-form-item>
+
+							<el-form-item>
+								<el-button type="primary" icon="el-icon-refresh" @click="resetFilters">重置</el-button>
+							</el-form-item>
+
+							<el-form-item>
+								<el-button type="success" icon="el-icon-download" @click="exportAllTabs" :loading="mergedExportLoading">
+									合并导出所有数据
+								</el-button>
+							</el-form-item>
+						</el-form>
+					</el-card>
+					
+					<!-- 数据展示 -->
+					<el-card style="margin-top: 20px;">
+						<el-tabs v-model="activeAnalysisTab" @tab-click="handleTabClick">
+							<el-tab-pane label="全部数据" name="all">
+								<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+									<span>共找到 {{ analysisData.total }} 条记录</span>
+									<el-button type="success" size="small" icon="el-icon-download" @click="exportData('all')" :disabled="analysisData.total === 0">
+										导出Excel
+									</el-button>
+								</div>
+								<el-table :data="analysisData.reports" v-loading="analysisLoading" style="width: 100%" stripe max-height="500">
+									<el-table-column prop="report_code" label="报告表编码" width="180" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="report_type_new" label="报告类型-新的" width="120">
+										<template slot-scope="scope">
+											{{ scope.row.report_type_new || '-' }}
+										</template>
+									</el-table-column>
+									<el-table-column prop="severity" label="报告类型-严重程度" width="140">
+										<template slot-scope="scope">
+											<el-tag :type="scope.row.severity === '严重' ? 'danger' : 'info'" size="small">
+												{{ scope.row.severity }}
+											</el-tag>
+										</template>
+									</el-table-column>
+									<el-table-column prop="medical_record_no" label="病历号/门诊号" width="140" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="suspect_concurrent" label="怀疑/并用" width="100">
+										<template slot-scope="scope">
+											<el-tag :type="scope.row.suspect_concurrent === '怀疑' ? 'warning' : 'success'" size="small">
+												{{ scope.row.suspect_concurrent }}
+											</el-tag>
+										</template>
+									</el-table-column>
+									<el-table-column prop="generic_name" label="通用名称" width="180" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="manufacturer" label="生产厂家" width="160" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="adverse_reaction_name" label="不良反应名称" width="200" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="reporter_profession" label="报告人职业" width="100"></el-table-column>
+									<el-table-column prop="reporter_signature" label="报告人签名" width="100"></el-table-column>
+									<el-table-column prop="national_center_receive_time" label="国家中心接收时间" width="160">
+										<template slot-scope="scope">
+											{{ formatDateTime(scope.row.national_center_receive_time) }}
+										</template>
+									</el-table-column>
+								</el-table>
+							</el-tab-pane>
+							
+							<el-tab-pane label="去重数据" name="deduplicated">
+								<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+									<span>去重后共 {{ deduplicatedData.total }} 条记录（已过滤"并用"数据，仅保留"怀疑"数据，并按报告编码去重）</span>
+									<el-button type="success" size="small" icon="el-icon-download" @click="exportData('deduplicated')" :disabled="deduplicatedData.total === 0">
+										导出Excel
+									</el-button>
+								</div>
+								<el-table :data="deduplicatedData.reports" v-loading="deduplicatedLoading" style="width: 100%" stripe max-height="500">
+									<el-table-column prop="report_code" label="报告表编码" width="180" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="report_type_new" label="报告类型-新的" width="120">
+										<template slot-scope="scope">
+											{{ scope.row.report_type_new || '-' }}
+										</template>
+									</el-table-column>
+									<el-table-column prop="severity" label="报告类型-严重程度" width="140">
+										<template slot-scope="scope">
+											<el-tag :type="scope.row.severity === '严重' ? 'danger' : 'info'" size="small">
+												{{ scope.row.severity }}
+											</el-tag>
+										</template>
+									</el-table-column>
+									<el-table-column prop="medical_record_no" label="病历号/门诊号" width="140" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="suspect_concurrent" label="怀疑/并用" width="100">
+										<template slot-scope="scope">
+											<el-tag :type="scope.row.suspect_concurrent === '怀疑' ? 'warning' : 'success'" size="small">
+												{{ scope.row.suspect_concurrent }}
+											</el-tag>
+										</template>
+									</el-table-column>
+									<el-table-column prop="generic_name" label="通用名称" width="180" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="manufacturer" label="生产厂家" width="160" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="adverse_reaction_name" label="不良反应名称" width="200" show-overflow-tooltip></el-table-column>
+									<el-table-column prop="reporter_profession" label="报告人职业" width="100"></el-table-column>
+									<el-table-column prop="reporter_signature" label="报告人签名" width="100"></el-table-column>
+									<el-table-column prop="national_center_receive_time" label="国家中心接收时间" width="160">
+										<template slot-scope="scope">
+											{{ formatDateTime(scope.row.national_center_receive_time) }}
+										</template>
+									</el-table-column>
+								</el-table>
+							</el-tab-pane>
+							
+							<el-tab-pane label="类型统计" name="statistics">
+								<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+									<span></span>
+									<el-button type="success" icon="el-icon-download" @click="exportStatistics" :loading="statisticsLoading">
+										导出Excel
+									</el-button>
+								</div>
+								<div style="margin-bottom: 20px;">
+									<el-row :gutter="20">
+										<el-col :span="12">
+											<el-card>
+												<div slot="header">
+													<span>类型统计</span>
+												</div>
+												<el-table :data="statisticsData.severity_stats" style="width: 100%">
+													<el-table-column prop="type" label="报告类型" width="120"></el-table-column>
+													<el-table-column prop="count" label="数量" width="80"></el-table-column>
+													<el-table-column prop="percentage" label="占比(%)" width="100"></el-table-column>
+													<el-table-column label="比例图" min-width="200">
+														<template slot-scope="scope">
+															<div style="display: flex; align-items: center;">
+																<div 
+																	:style="{
+																		width: scope.row.percentage + '%',
+																		height: '20px',
+																		backgroundColor: getTypeColor(scope.row.type),
+																		marginRight: '10px',
+																		borderRadius: '2px'
+																	}"
+																></div>
+																<span style="font-size: 12px;">{{ scope.row.percentage }}%</span>
+															</div>
+														</template>
+													</el-table-column>
+												</el-table>
+											</el-card>
+										</el-col>
+										<el-col :span="12">
+											<el-card>
+												<div slot="header">
+													<span>类型分布图</span>
+												</div>
+												<div style="height: 300px; padding: 20px; position: relative;">
+													<div v-if="statisticsData.chart_data && statisticsData.chart_data.length > 0"
+														style="height: 100%; display: flex; align-items: flex-end; justify-content: space-around;">
+														<div v-for="item in statisticsData.chart_data" :key="item.name"
+															style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; margin: 0 5px;">
+															<!-- 数值标签 -->
+															<div style="font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #333;">
+																{{ item.value }}
+															</div>
+															<!-- 柱状图 -->
+															<div
+																:style="{
+																	width: '100%',
+																	maxWidth: '80px',
+																	height: getChartHeight(item.value) + '%',
+																	backgroundColor: getTypeColor(item.name),
+																	borderRadius: '4px 4px 0 0',
+																	transition: 'height 0.3s ease',
+																	minHeight: '30px',
+																	display: 'flex',
+																	alignItems: 'center',
+																	justifyContent: 'center'
+																}"
+															></div>
+															<!-- 类型标签 -->
+															<div style="font-size: 12px; color: #666; margin-top: 8px; text-align: center; word-break: keep-all;">
+																{{ item.name }}
+															</div>
+														</div>
+													</div>
+													<div v-else style="height: 100%; display: flex; align-items: center; justify-content: center; color: #999;">
+														暂无数据
+													</div>
+												</div>
+											</el-card>
+										</el-col>
+									</el-row>
+								</div>
+								
+								<el-card style="margin-bottom: 20px;">
+									<div slot="header">
+										<span>ADR数量占比统计</span>
+									</div>
+									<el-table :data="monthlyRatioTableData" style="width: 100%" stripe border>
+										<el-table-column prop="type" label="ADR数量" width="120" align="center" fixed="left">
+											<template slot-scope="scope">
+												<span :style="{ fontWeight: scope.row.type === '总计' ? 'bold' : 'normal', backgroundColor: scope.row.type === '总计' ? '#E8F5E8' : 'transparent' }">
+													{{ scope.row.type }}
+												</span>
+											</template>
+										</el-table-column>
+										<el-table-column v-for="month in monthColumns" :key="month" :prop="month" :label="month" width="80" align="center">
+											<template slot-scope="scope">
+												<span v-if="scope.row.type === '占比'" :style="{ color: getPercentageColor(scope.row.type, scope.row[month]) }">
+													{{ scope.row[month] }}
+												</span>
+												<span v-else>{{ scope.row[month] }}</span>
+											</template>
+										</el-table-column>
+										<el-table-column prop="total" label="总计数量" width="100" align="center" fixed="right">
+											<template slot-scope="scope">
+												<span :style="{ fontWeight: 'bold', color: '#409EFF' }">
+													{{ scope.row.total }}
+												</span>
+											</template>
+										</el-table-column>
+									</el-table>
+								</el-card>
+								
+								<el-card>
+									<div slot="header">
+										<span>月度统计</span>
+									</div>
+									<el-table :data="statisticsData.month_stats" style="width: 100%">
+										<el-table-column prop="month" label="月份" width="100"></el-table-column>
+										<el-table-column prop="一般" label="一般" width="80"></el-table-column>
+										<el-table-column prop="严重" label="严重" width="80"></el-table-column>
+										<el-table-column prop="新的+一般" label="新的+一般" width="100"></el-table-column>
+										<el-table-column prop="新的+严重" label="新的+严重" width="100"></el-table-column>
+									</el-table>
+								</el-card>
+							</el-tab-pane>
+							
+							<el-tab-pane label="上报明细-全院" name="report-details">
+								<div style="margin-bottom: 20px;">
+									<el-card>
+										<div slot="header" style="display: flex; justify-content: space-between; align-items: center;">
+											<el-button type="success" icon="el-icon-download" @click="exportReportDetails" :loading="reportDetailsLoading">
+												导出Excel
+											</el-button>
+										</div>
+										<el-table :data="reportDetailsTableData" v-loading="reportDetailsLoading" style="width: 100%" stripe border>
+											<el-table-column prop="department" label="科室" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', backgroundColor: scope.row.isTotal ? '#E8F5E8' : (scope.row.isSubtotal ? '#F0F9FF' : 'transparent') }">
+														{{ scope.row.department }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="profession" label="职业" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.profession }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="reporter_name" label="姓名" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.reporter_name }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column label="数量" align="center">
+												<el-table-column prop="total" label="总计" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.isTotal ? '#409EFF' : '#333' }">
+															{{ scope.row.total || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="一般" label="一般" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+															{{ scope.row.一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="严重" label="严重" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.严重 > 0 ? '#F56C6C' : '#333' }">
+															{{ scope.row.严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="新的_一般" label="新的一般" width="100" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.新的_一般 > 0 ? '#409EFF' : '#333' }">
+															{{ scope.row.新的_一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="新的_严重" label="新的严重" width="100" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.新的_严重 > 0 ? '#E6A23C' : '#333' }">
+															{{ scope.row.新的_严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+											</el-table-column>
+										</el-table>
+									</el-card>
+								</div>
+							</el-tab-pane>
+							
+							<el-tab-pane label="奖励计算-药学" name="reward-calculation">
+								<div style="margin-bottom: 20px;">
+									<el-card>
+										<div slot="header" style="display: flex; justify-content: space-between; align-items: center;">
+											<span>奖励计算规则：药师-一般50元/例，严重70元/例，新的一般100元/例，新的严重150元/例（各类型分别进行阶梯式计算）；非药师-300元/例（不进行阶梯计算）</span>
+											<el-button type="success" icon="el-icon-download" @click="exportRewardCalculation" :loading="rewardCalculationLoading">
+												导出Excel
+											</el-button>
+										</div>
+										<el-table :data="rewardCalculationTableData" v-loading="rewardCalculationLoading" style="width: 100%" stripe border>
+											<el-table-column prop="department" label="科室" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', backgroundColor: scope.row.isTotal ? '#E8F5E8' : (scope.row.isSubtotal ? '#F0F9FF' : 'transparent') }">
+														{{ scope.row.department }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="profession" label="职业" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.profession }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="reporter_name" label="姓名" width="100" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.reporter_name }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column label="数量" align="center">
+												<el-table-column prop="一般" label="一般" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal' }">
+															{{ scope.row.一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="奖励_一般" label="奖励/元" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.奖励_一般 > 0 ? '#67C23A' : '#333' }">
+															{{ scope.row.奖励_一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="严重" label="严重" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.严重 > 0 ? '#F56C6C' : '#333' }">
+															{{ scope.row.严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="奖励_严重" label="奖励/元" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.奖励_严重 > 0 ? '#F56C6C' : '#333' }">
+															{{ scope.row.奖励_严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="新的_一般" label="新的一般" width="100" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.新的_一般 > 0 ? '#409EFF' : '#333' }">
+															{{ scope.row.新的_一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="奖励_新的一般" label="奖励/元" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.奖励_新的一般 > 0 ? '#409EFF' : '#333' }">
+															{{ scope.row.奖励_新的一般 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="新的_严重" label="新的严重" width="100" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.新的_严重 > 0 ? '#E6A23C' : '#333' }">
+															{{ scope.row.新的_严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+												<el-table-column prop="奖励_新的严重" label="奖励/元" width="80" align="center">
+													<template slot-scope="scope">
+														<span :style="{ fontWeight: scope.row.isSubtotal || scope.row.isTotal ? 'bold' : 'normal', color: scope.row.奖励_新的严重 > 0 ? '#E6A23C' : '#333' }">
+															{{ scope.row.奖励_新的严重 || 0 }}
+														</span>
+													</template>
+												</el-table-column>
+											</el-table-column>
+											<el-table-column prop="个人奖励合计" label="个人奖励合计/元" width="120" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: 'bold', color: scope.row.isTotal ? '#409EFF' : '#E6A23C', fontSize: scope.row.isTotal ? '16px' : '14px' }">
+														{{ scope.row.个人奖励合计 || 0 }}
+													</span>
+												</template>
+											</el-table-column>
+										</el-table>
+									</el-card>
+								</div>
+							</el-tab-pane>
+							
+							<el-tab-pane label="发生不良反应的药品汇总" name="drug-summary">
+								<div style="margin-bottom: 20px;">
+									<el-card>
+										<div slot="header" style="display: flex; justify-content: space-between; align-items: center;">
+											<span>发生不良反应的药品统计汇总</span>
+											<el-button type="success" icon="el-icon-download" @click="exportDrugSummary" :loading="drugSummaryLoading">
+												导出Excel
+											</el-button>
+										</div>
+										<el-table :data="drugSummaryTableData" v-loading="drugSummaryLoading" style="width: 100%" stripe border>
+											<el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
+											<el-table-column prop="drug_name" label="通用名称" min-width="150" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.drug_name }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="manufacturer" label="生产厂家" min-width="200" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.manufacturer }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="严重" label="严重" width="80" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isTotal ? 'bold' : 'normal', color: scope.row.严重 > 0 ? '#F56C6C' : '#333' }">
+														{{ scope.row.严重 || 0 }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="一般" label="一般" width="80" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: scope.row.isTotal ? 'bold' : 'normal' }">
+														{{ scope.row.一般 || 0 }}
+													</span>
+												</template>
+											</el-table-column>
+											<el-table-column prop="total" label="合计" width="80" align="center">
+												<template slot-scope="scope">
+													<span :style="{ fontWeight: 'bold', color: scope.row.isTotal ? '#409EFF' : '#E6A23C' }">
+														{{ scope.row.total || 0 }}
+													</span>
+												</template>
+											</el-table-column>
+										</el-table>
+									</el-card>
+								</div>
+								
+								<!-- 图表展示 -->
+								<div style="margin-bottom: 20px;" v-if="drugSummaryChartData.bar_chart || drugSummaryChartData.pie_chart">
+									<el-row :gutter="20">
+										<el-col :span="14">
+											<el-card>
+												<div slot="header">
+													<span>前十名药品不良反应统计</span>
+												</div>
+												<div style="height: 450px; padding: 20px 10px;">
+													<div v-if="drugSummaryChartData.bar_chart && drugSummaryChartData.bar_chart.length > 0" style="display: flex; width: 100%; height: 100%;">
+														<div v-for="(item, index) in drugSummaryChartData.bar_chart" :key="index"
+															style="flex: 1; display: flex; flex-direction: column; align-items: center; margin: 0 3px;">
+															<!-- 柱状图容器 - 固定高度 -->
+															<div style="display: flex; align-items: flex-end; height: 320px; width: 100%;">
+																<!-- 一般柱子 -->
+																<div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-right: 2px;">
+																	<div style="font-size: 10px; color: #67C23A; margin-bottom: 2px;">{{ item.一般 }}</div>
+																	<div
+																		:style="{
+																			width: '100%',
+																			height: Math.max(20, (item.一般 / getMaxValue(drugSummaryChartData.bar_chart)) * 280) + 'px',
+																			backgroundColor: '#67C23A',
+																			borderRadius: '2px 2px 0 0'
+																		}"
+																	></div>
+																</div>
+																<!-- 严重柱子 -->
+																<div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 2px;">
+																	<div style="font-size: 10px; color: #F56C6C; margin-bottom: 2px;">{{ item.严重 }}</div>
+																	<div
+																		:style="{
+																			width: '100%',
+																			height: Math.max(20, (item.严重 / getMaxValue(drugSummaryChartData.bar_chart)) * 280) + 'px',
+																			backgroundColor: '#F56C6C',
+																			borderRadius: '2px 2px 0 0'
+																		}"
+																	></div>
+																</div>
+															</div>
+															<!-- 药品名称 - 固定高度容器 -->
+															<div style="font-size: 10px; color: #666; text-align: center; margin-top: 8px; word-wrap: break-word; word-break: keep-all; line-height: 1.3; max-width: 100px; white-space: normal; min-height: 40px; display: flex; align-items: flex-start; justify-content: center;">
+																<span>{{ item.drug_name }}</span>
+															</div>
+														</div>
+													</div>
+													<div v-else style="color: #999; text-align: center;">暂无数据</div>
+												</div>
+												<!-- 图例 -->
+												<div style="text-align: center; margin-top: 10px;">
+													<span style="display: inline-block; width: 12px; height: 12px; background-color: #67C23A; margin-right: 5px; border-radius: 2px;"></span>
+													<span style="font-size: 12px; margin-right: 20px;">一般</span>
+													<span style="display: inline-block; width: 12px; height: 12px; background-color: #F56C6C; margin-right: 5px; border-radius: 2px;"></span>
+													<span style="font-size: 12px;">严重</span>
+												</div>
+											</el-card>
+										</el-col>
+										<el-col :span="10">
+											<el-card>
+												<div slot="header">
+													<span>药品不良反应分布</span>
+												</div>
+												<div style="height: 450px; display: flex; align-items: center; justify-content: center; position: relative; padding-right: 160px;">
+													<div v-if="drugSummaryChartData.pie_chart && drugSummaryChartData.pie_chart.length > 0" style="position: relative; width: 300px; height: 300px;">
+														<!-- 饼图 -->
+														<svg width="300" height="300" style="position: absolute;">
+															<g transform="translate(150,150)">
+																<path v-for="(slice, index) in getPieSlices(drugSummaryChartData.pie_chart)" :key="index"
+																	:d="slice.path"
+																	:fill="getPieColor(index)"
+																	:stroke="'white'"
+																	:stroke-width="2"
+																></path>
+															</g>
+														</svg>
+														<!-- 图例 -->
+														<div style="position: absolute; right: -150px; top: 50%; transform: translateY(-50%); width: 140px;">
+															<div v-for="(item, index) in drugSummaryChartData.pie_chart" :key="index" style="margin-bottom: 10px; font-size: 11px; display: flex; align-items: flex-start;">
+																<span :style="{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: getPieColor(index), marginRight: '6px', borderRadius: '2px', flexShrink: 0, marginTop: '2px' }"></span>
+																<div style="line-height: 1.4; word-wrap: break-word; word-break: keep-all; white-space: normal;">
+																	<div style="font-weight: 500;">{{ item.name }}</div>
+																	<div style="color: #666; font-size: 10px;">{{ item.value }}例</div>
+																</div>
+															</div>
+														</div>
+													</div>
+													<div v-else style="color: #999;">暂无数据</div>
+												</div>
+											</el-card>
+										</el-col>
+									</el-row>
+								</div>
+							</el-tab-pane>
+						</el-tabs>
+					</el-card>
+				</div>
+			</div>
+		</div>
+		
+		<!-- 修改密码对话框 -->
+		<el-dialog title="修改密码" :visible.sync="showPasswordDialog" width="400px" :close-on-click-modal="false">
+			<el-form :model="passwordForm" :rules="passwordRules" ref="passwordForm" label-width="100px">
+				<el-form-item label="当前密码" prop="currentPassword">
+					<el-input type="password" v-model="passwordForm.currentPassword" placeholder="请输入当前密码" show-password></el-input>
+				</el-form-item>
+				<el-form-item label="新密码" prop="newPassword">
+					<el-input type="password" v-model="passwordForm.newPassword" placeholder="请输入新密码" show-password></el-input>
+				</el-form-item>
+				<el-form-item label="确认密码" prop="confirmPassword">
+					<el-input type="password" v-model="passwordForm.confirmPassword" placeholder="请再次输入新密码" show-password></el-input>
+				</el-form-item>
+			</el-form>
+			<div slot="footer" class="dialog-footer">
+				<el-button @click="cancelPasswordChange">取消</el-button>
+				<el-button type="primary" @click="changePassword" :loading="passwordChangeLoading">确认修改</el-button>
+			</div>
+		</el-dialog>
+	</div>
+
+	<script src="/static/libs/vue/vue.js"></script>
+	<script src="/static/libs/axios/axios.min.js"></script>
+	<script src="/static/libs/element-ui/index.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+	<script>
+	new Vue({
+		el: '#app',
+		data() {
+			return {
+				currentUser: { username: '' },
+				activeMenu: 'dashboard',
+				uploadUrl: '/api/data/upload',
+				uploadHeaders: {},
+				fileList: [],
+				stats: {
+					totalRecords: 0,
+					todayImports: 0,
+					pendingReviews: 0,
+					alerts: 0,
+					monthlyCount: 0,
+					pharmacistCount: 0,
+					newReports: 0,
+					importTrend: [],
+					severityDistribution: [],
+					departmentDistribution: []
+				},
+				importHistory: [],
+				// 数据管理相关
+				reports: [],
+				reportsLoading: false,
+				searchText: '',
+				severityFilter: '',
+				currentPage: 1,
+				pageSize: 20,
+				totalRecords: 0,
+				selectedReports: [],
+				// 数据分析相关
+				activeAnalysisTab: 'all',
+				analysisFilters: {
+					startMonth: '',
+					endMonth: ''
+				},
+				availableMonths: [],
+				fieldValues: {
+					severity: [],
+					suspect_concurrent: [],
+					reporter_profession: [],
+					manufacturer: [],
+					generic_name: []
+				},
+				analysisData: { reports: [], total: 0 },
+				analysisLoading: false,
+				deduplicatedData: { reports: [], total: 0 },
+				deduplicatedLoading: false,
+				// 统计数据相关
+				statisticsData: {
+					severity_stats: [],
+					month_stats: [],
+					chart_data: [],
+					total_count: 0,
+					monthly_ratio_stats: []
+				},
+				// 月度占比统计表格数据
+				monthlyRatioTableData: [],
+				monthColumns: [],
+				statisticsLoading: false,
+				// 上报明细数据
+				reportDetailsData: {
+					report_details: [],
+					department_subtotals: {},
+					total_stats: {}
+				},
+				reportDetailsTableData: [],
+				reportDetailsLoading: false,
+				// 奖励计算数据
+				rewardCalculationData: {
+					reward_details: [],
+					department_subtotals: {},
+					total_stats: {}
+				},
+				rewardCalculationTableData: [],
+				rewardCalculationLoading: false,
+				// 药品汇总数据
+				drugSummaryData: [],
+				drugSummaryTableData: [],
+				drugSummaryLoading: false,
+				drugSummaryChartData: {
+					bar_chart: [],
+					pie_chart: []
+				},
+				// 合并导出
+				mergedExportLoading: false,
+				// 密码修改
+				showPasswordDialog: false,
+				passwordChangeLoading: false,
+				// 工作量数据管理
+				activeWorkloadTab: 'sample',
+				workloadYear: new Date().getFullYear(),
+				workloadData: {
+					sample: [],
+					income: [],
+					critical: []
+				},
+				// 查询条件
+				workloadQueryYear: null,
+				workloadQueryMonthStart: null,
+				workloadQueryMonthEnd: null,
+				// 过滤后的数据
+				filteredWorkloadData: {
+					sample: [],
+					income: [],
+					critical: []
+				},
+				workloadPagination: {
+					sample: { currentPage: 1, pageSize: 10 },
+					income: { currentPage: 1, pageSize: 10 },
+					critical: { currentPage: 1, pageSize: 10 }
+				},
+				// 数据可视化
+				visualQueryYear: new Date().getFullYear(),
+				visualMonthStart: 1,
+				visualMonthEnd: 12,
+				quarterlyChartData: [],
+				maxQuarterlyValue: 0,
+				incomeChartData: [],
+				maxIncomeValue: 0,
+				projectQueryYear: new Date().getFullYear(),
+				projectQueryQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
+				projectIncomeChartData: [],
+				maxProjectIncome: 0,
+				projectSampleChartData: [],
+				criticalQueryYear: new Date().getFullYear(),
+				criticalQueryQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
+				criticalCompareChartData: [],
+				maxCriticalValue: 0,
+				criticalProjectChartData: [],
+				// 总体监测情况汇报
+				overallQueryYear: new Date().getFullYear(),
+				overallMonthStart: 1,
+				overallMonthEnd: 12,
+				overallChartData: [],
+				maxOverallSample: 0,
+				maxOverallIncome: 0,
+				passwordForm: {
+					currentPassword: '',
+					newPassword: '',
+					confirmPassword: ''
+				},
+				passwordRules: {
+					currentPassword: [
+						{ required: true, message: '请输入当前密码', trigger: 'blur' }
+					],
+					newPassword: [
+						{ required: true, message: '请输入新密码', trigger: 'blur' },
+						{ min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+					],
+					confirmPassword: [
+						{ required: true, message: '请再次输入新密码', trigger: 'blur' },
+						{ validator: this.validateConfirmPassword, trigger: 'blur' }
+					]
+				}
+			}
+		},
+		mounted() {
+			this.checkAuth();
+			this.loadStats();
+			this.loadImportHistory();
+
+			// 不设置默认月份，让用户自己选择区间
+		},
+		computed: {
+			paginatedWorkloadData() {
+				const result = {};
+				['sample', 'income', 'critical'].forEach(type => {
+					const data = this.filteredWorkloadData[type];
+					const page = this.workloadPagination[type].currentPage;
+					const pageSize = this.workloadPagination[type].pageSize;
+					const start = (page - 1) * pageSize;
+					const end = start + pageSize;
+					result[type] = data.slice(start, end);
+				});
+				return result;
+			}
+		},
+		methods: {
+			async checkAuth() {
+				try {
+					const res = await axios.get('/api/auth/me', { withCredentials: true });
+					if (!res.data.authenticated) {
+						window.location.href = '/';
+						return;
+					}
+					this.currentUser = res.data.user;
+				} catch (e) {
+					window.location.href = '/';
+				}
+			},
+			
+			async logout() {
+				try {
+					await axios.post('/api/auth/logout', {}, { withCredentials: true });
+					this.$message.success('已退出登录');
+					window.location.href = '/';
+				} catch (e) {
+					this.$message.error('退出登录失败');
+				}
+			},
+			
+			setActiveMenu(menu) {
+				this.activeMenu = menu;
+				if (menu === 'data-management') {
+					this.loadReports();
+				} else if (menu === 'workload-management') {
+					this.loadWorkloadData();
+				} else if (menu === 'data-analysis') {
+					this.loadAnalysisMetadata();
+					this.loadStatistics();
+				}
+			},
+			
+			async loadStats() {
+				try {
+					const res = await axios.get('/api/data/stats', { withCredentials: true });
+					this.stats = res.data;
+				} catch (e) {
+					console.error('加载统计数据失败:', e);
+					// 使用默认数据
+					this.stats = {
+						totalRecords: 0,
+						todayImports: 0,
+						pendingReviews: 0,
+						alerts: 0,
+						monthlyCount: 0,
+						pharmacistCount: 0,
+						newReports: 0,
+						importTrend: [],
+						severityDistribution: [],
+						departmentDistribution: []
+					};
+				}
+			},
+			
+			getProgressColor(percentage) {
+				if (percentage < 30) {
+					return '#F56C6C';
+				} else if (percentage < 70) {
+					return '#E6A23C';
+				} else {
+					return '#67C23A';
+				}
+			},
+			
+			getMaxDepartmentCount() {
+				if (!this.stats.departmentDistribution || this.stats.departmentDistribution.length === 0) {
+					return 1;
+				}
+				return Math.max(...this.stats.departmentDistribution.map(item => item.count));
+			},
+			
+			getMaxImportCount() {
+				if (!this.stats.importTrend || this.stats.importTrend.length === 0) {
+					return 1;
+				}
+				return Math.max(...this.stats.importTrend.map(item => item.count));
+			},
+			
+			getLinePointsPercent() {
+				if (!this.stats.importTrend || this.stats.importTrend.length === 0) {
+					return '';
+				}
+				
+				const maxCount = this.getMaxImportCount();
+				const stepWidth = 100 / (this.stats.importTrend.length - 1);
+				
+				const points = this.stats.importTrend.map((item, index) => {
+					const x = index * stepWidth;
+					const y = 100 - (item.count / maxCount) * 100; // 反转Y轴
+					return `${x},${y}`;
+				});
+				
+				return points.join(' ');
+			},
+			
+			getFillAreaPoints() {
+				if (!this.stats.importTrend || this.stats.importTrend.length === 0) {
+					return '';
+				}
+				
+				const maxCount = this.getMaxImportCount();
+				const stepWidth = 100 / (this.stats.importTrend.length - 1);
+				
+				// 创建填充区域的点，从左下角开始，沿着折线，到右下角结束
+				const linePoints = this.stats.importTrend.map((item, index) => {
+					const x = index * stepWidth;
+					const y = 100 - (item.count / maxCount) * 100;
+					return `${x},${y}`;
+				});
+				
+				// 添加底边的点
+				const lastIndex = this.stats.importTrend.length - 1;
+				const bottomPoints = [
+					`${lastIndex * stepWidth},100`, // 右下角
+					`0,100` // 左下角
+				];
+				
+				return [...linePoints, ...bottomPoints].join(' ');
+			},
+			
+			getDataPointsPercent() {
+				if (!this.stats.importTrend || this.stats.importTrend.length === 0) {
+					return [];
+				}
+				
+				const maxCount = this.getMaxImportCount();
+				const stepWidth = 100 / (this.stats.importTrend.length - 1);
+				
+				return this.stats.importTrend.map((item, index) => {
+					const x = index * stepWidth;
+					const y = 100 - (item.count / maxCount) * 100; // 反转Y轴
+					return {
+						x: x,
+						y: y,
+						value: item.count
+					};
+				});
+			},
+			
+			async loadImportHistory() {
+				try {
+					const res = await axios.get('/api/data/import-history', { withCredentials: true });
+					this.importHistory = res.data;
+				} catch (e) {
+					console.error('加载导入历史失败:', e);
+					this.importHistory = [];
+				}
+			},
+			
+			beforeUpload(file) {
+				const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+				               file.type === 'application/vnd.ms-excel';
+				const isLt10M = file.size / 1024 / 1024 < 10;
+				
+				if (!isExcel) {
+					this.$message.error('只能上传 Excel 文件!');
+					return false;
+				}
+				if (!isLt10M) {
+					this.$message.error('上传文件大小不能超过 10MB!');
+					return false;
+				}
+				return true;
+			},
+			
+			handleUploadSuccess(response, file) {
+				this.$message.success('文件上传成功!');
+				this.loadImportHistory();
+				this.loadStats();
+			},
+			
+			handleUploadError(err, file) {
+				this.$message.error('文件上传失败: ' + (err.message || '未知错误'));
+			},
+			
+			// 数据管理相关方法
+			async loadReports() {
+				this.reportsLoading = true;
+				try {
+					const params = {
+						page: this.currentPage,
+						per_page: this.pageSize,
+						search: this.searchText,
+						severity: this.severityFilter
+					};
+					
+					const res = await axios.get('/api/data/reports', { 
+						params, 
+						withCredentials: true 
+					});
+					
+					this.reports = res.data.reports;
+					this.totalRecords = res.data.total;
+				} catch (e) {
+					this.$message.error('加载数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.reports = [];
+					this.totalRecords = 0;
+				} finally {
+					this.reportsLoading = false;
+				}
+			},
+			
+			searchReports() {
+				this.currentPage = 1;
+				this.loadReports();
+			},
+			
+			handleSizeChange(val) {
+				this.pageSize = val;
+				this.currentPage = 1;
+				this.loadReports();
+			},
+			
+			handleCurrentChange(val) {
+				this.currentPage = val;
+				this.loadReports();
+			},
+
+			handleSelectionChange(selection) {
+				this.selectedReports = selection;
+			},
+
+			async batchDelete() {
+				if (this.selectedReports.length === 0) {
+					this.$message.warning('请选择要删除的报告');
+					return;
+				}
+
+				try {
+					await this.$confirm(`确定要删除选中的 ${this.selectedReports.length} 条报告吗？此操作不可恢复！`, '批量删除', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'warning'
+					});
+
+					const ids = this.selectedReports.map(report => report.id);
+					const res = await axios.post('/api/data/reports/batch-delete', { ids }, { withCredentials: true });
+
+					this.$message.success(res.data.message);
+					this.selectedReports = [];
+					this.loadReports();
+					this.loadStats();
+				} catch (error) {
+					if (error !== 'cancel') {
+						this.$message.error('批量删除失败: ' + (error.response?.data?.message || '未知错误'));
+					}
+				}
+			},
+
+			async clearAllData() {
+				try {
+					await this.$confirm('确定要清空数据库中的所有数据吗？此操作不可恢复！', '一键清空', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'error',
+						confirmButtonClass: 'el-button--danger'
+					});
+
+					const res = await axios.post('/api/data/reports/clear-all', {}, { withCredentials: true });
+
+					this.$message.success(res.data.message);
+					this.selectedReports = [];
+					this.reports = [];
+					this.totalRecords = 0;
+					this.loadStats();
+				} catch (error) {
+					if (error !== 'cancel') {
+						this.$message.error('清空数据库失败: ' + (error.response?.data?.message || '未知错误'));
+					}
+				}
+			},
+			
+			viewReport(report) {
+				this.$alert(
+					`<div style="text-align: left; line-height: 1.8;">
+						<p><strong>报告表编码:</strong> ${report.report_code}</p>
+						<p><strong>报告类型-新的:</strong> ${report.report_type_new || '无'}</p>
+						<p><strong>报告类型-严重程度:</strong> ${report.severity}</p>
+						<p><strong>病历号/门诊号:</strong> ${report.medical_record_no}</p>
+						<p><strong>怀疑/并用:</strong> ${report.suspect_concurrent}</p>
+						<p><strong>通用名称:</strong> ${report.generic_name}</p>
+						<p><strong>生产厂家:</strong> ${report.manufacturer}</p>
+						<p><strong>不良反应名称:</strong> ${report.adverse_reaction_name}</p>
+						<p><strong>报告人职业:</strong> ${report.reporter_profession}</p>
+						<p><strong>报告人签名:</strong> ${report.reporter_signature}</p>
+						<p><strong>国家中心接收时间:</strong> ${this.formatDateTime(report.national_center_receive_time)}</p>
+					</div>`,
+					'报告详情',
+					{
+						dangerouslyUseHTMLString: true,
+						customClass: 'report-detail-dialog'
+					}
+				);
+			},
+			
+			formatDateTime(dateStr) {
+				if (!dateStr) return '';
+				const date = new Date(dateStr);
+				return date.toLocaleString('zh-CN');
+			},
+			
+			// 数据分析相关方法
+			async loadAnalysisMetadata() {
+				try {
+					// 加载可用月份
+					const monthsRes = await axios.get('/api/data/analysis/months', { withCredentials: true });
+					this.availableMonths = monthsRes.data;
+					
+					// 加载各字段的值
+					const fields = ['severity', 'suspect_concurrent', 'reporter_profession', 'manufacturer', 'generic_name'];
+					for (const field of fields) {
+						try {
+							const res = await axios.get(`/api/data/analysis/field-values?field=${field}`, { withCredentials: true });
+							this.fieldValues[field] = res.data;
+						} catch (e) {
+							console.error(`加载字段 ${field} 值失败:`, e);
+						}
+					}
+					
+					// 初始加载数据
+					this.loadAnalysisData();
+				} catch (e) {
+					this.$message.error('加载分析元数据失败: ' + (e.response?.data?.message || '未知错误'));
+				}
+			},
+			
+			async loadAnalysisData() {
+				this.analysisLoading = true;
+				try {
+					const params = { ...this.analysisFilters };
+					const res = await axios.get('/api/data/analysis/data', { 
+						params, 
+						withCredentials: true 
+					});
+					this.analysisData = res.data;
+					
+					// 如果当前是去重标签页，也加载去重数据
+					if (this.activeAnalysisTab === 'deduplicated') {
+						this.loadDeduplicatedData();
+					}
+					
+					// 如果当前是统计标签页，也加载统计数据
+					if (this.activeAnalysisTab === 'statistics') {
+						this.loadStatistics();
+					}
+				} catch (e) {
+					this.$message.error('加载分析数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.analysisData = { reports: [], total: 0 };
+				} finally {
+					this.analysisLoading = false;
+				}
+			},
+			
+			async loadDeduplicatedData() {
+				this.deduplicatedLoading = true;
+				try {
+					const params = { ...this.analysisFilters };
+					const res = await axios.get('/api/data/analysis/deduplicated', { 
+						params, 
+						withCredentials: true 
+					});
+					this.deduplicatedData = res.data;
+				} catch (e) {
+					this.$message.error('加载去重数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.deduplicatedData = { reports: [], total: 0 };
+				} finally {
+					this.deduplicatedLoading = false;
+				}
+			},
+			
+			handleTabClick(tab) {
+				if (tab.name === 'deduplicated' && this.deduplicatedData.reports.length === 0) {
+					this.loadDeduplicatedData();
+				} else if (tab.name === 'statistics') {
+					this.loadStatistics();
+				} else if (tab.name === 'report-details') {
+					this.loadReportDetails();
+				} else if (tab.name === 'reward-calculation') {
+					this.loadRewardCalculation();
+				} else if (tab.name === 'drug-summary') {
+					this.loadDrugSummary();
+				}
+			},
+			
+			resetFilters() {
+				this.analysisFilters = {
+					startMonth: '',
+					endMonth: ''
+				};
+				this.loadAnalysisData();
+			},
+			
+			exportData(type) {
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						...this.analysisFilters,
+						type: type
+					});
+					
+					const exportUrl = `/api/data/analysis/export?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('导出失败: ' + (e.message || '未知错误'));
+				}
+			},
+			
+			exportStatistics() {
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					});
+					
+					const exportUrl = `/api/data/analysis/export-statistics?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('类型统计数据导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('导出统计数据失败: ' + (e.message || '未知错误'));
+				}
+			},
+			
+			async loadStatistics() {
+				this.statisticsLoading = true;
+				try {
+					const params = {
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					};
+					const res = await axios.get('/api/data/analysis/statistics', { 
+						params, 
+						withCredentials: true 
+					});
+					this.statisticsData = res.data;
+					
+					// 处理月度统计表格数据
+					this.processMonthlyRatioData();
+				} catch (e) {
+					this.$message.error('加载统计数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.statisticsData = {
+						severity_stats: [],
+						month_stats: [],
+						chart_data: [],
+						total_count: 0,
+						monthly_ratio_stats: []
+					};
+					this.processMonthlyRatioData();
+				} finally {
+					this.statisticsLoading = false;
+				}
+			},
+			
+			async loadReportDetails() {
+				this.reportDetailsLoading = true;
+				try {
+					const params = {
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					};
+					const res = await axios.get('/api/data/analysis/report-details', { 
+						params, 
+						withCredentials: true 
+					});
+					this.reportDetailsData = res.data;
+					
+					// 处理表格数据
+					this.processReportDetailsTableData();
+				} catch (e) {
+					this.$message.error('加载上报明细失败: ' + (e.response?.data?.message || '未知错误'));
+					this.reportDetailsData = {
+						report_details: [],
+						department_subtotals: {},
+						total_stats: {}
+					};
+					this.processReportDetailsTableData();
+				} finally {
+					this.reportDetailsLoading = false;
+				}
+			},
+			
+			processReportDetailsTableData() {
+				const tableData = [];
+				const details = this.reportDetailsData.report_details || [];
+				const subtotals = this.reportDetailsData.department_subtotals || {};
+				const totalStats = this.reportDetailsData.total_stats || {};
+				
+				// 调试信息
+				console.log('totalStats:', totalStats);
+				console.log('subtotals:', subtotals);
+				console.log('details length:', details.length);
+				
+				// 按科室分组
+				const departmentGroups = {};
+				details.forEach(detail => {
+					if (!departmentGroups[detail.department]) {
+						departmentGroups[detail.department] = [];
+					}
+					departmentGroups[detail.department].push(detail);
+				});
+				
+				// 生成表格数据
+				Object.keys(departmentGroups).sort().forEach(department => {
+					// 添加科室内的详细数据
+					departmentGroups[department].forEach(detail => {
+						tableData.push({
+							department: detail.department,
+							profession: detail.profession,
+							reporter_name: detail.reporter_name,
+							total: detail.total,
+							一般: detail.一般,
+							严重: detail.严重,
+							新的_一般: detail.新的_一般,
+							新的_严重: detail.新的_严重,
+							isSubtotal: false,
+							isTotal: false
+						});
+					});
+					
+					// 添加科室小计
+					if (subtotals[department]) {
+						tableData.push({
+							department: '小计',
+							profession: '',
+							reporter_name: '',
+							total: subtotals[department].total,
+							一般: subtotals[department].一般,
+							严重: subtotals[department].严重,
+							新的_一般: subtotals[department].新的_一般,
+							新的_严重: subtotals[department].新的_严重,
+							isSubtotal: true,
+							isTotal: false
+						});
+					}
+				});
+				
+				// 添加合计行 - 从已生成的表格数据中找到小计行来计算合计
+				const subtotalRows = tableData.filter(row => row.isSubtotal);
+				
+				if (subtotalRows.length > 0) {
+					// 从小计行计算合计
+					let grandTotal = 0;
+					let grandGeneral = 0;
+					let grandSevere = 0;
+					let grandNewGeneral = 0;
+					let grandNewSevere = 0;
+					
+					subtotalRows.forEach(row => {
+						grandTotal += row.total || 0;
+						grandGeneral += row.一般 || 0;
+						grandSevere += row.严重 || 0;
+						grandNewGeneral += row.新的_一般 || 0;
+						grandNewSevere += row.新的_严重 || 0;
+					});
+					
+					// 合计行只显示总计数量，不需要累加所有分类
+					const finalTotal = grandTotal;
+					
+					console.log('从小计行计算合计:', {
+						subtotalRows: subtotalRows.length,
+						grandTotal,
+						grandGeneral,
+						grandSevere,
+						grandNewGeneral,
+						grandNewSevere,
+						finalTotal
+					});
+					
+					tableData.push({
+						department: '合计',
+						profession: '',
+						reporter_name: '',
+						total: finalTotal,
+						一般: '',
+						严重: '',
+						新的_一般: '',
+						新的_严重: '',
+						isSubtotal: false,
+						isTotal: true
+					});
+				} else if (totalStats.total !== undefined) {
+					// 如果没有小计行，使用totalStats
+					const finalTotal = totalStats.total || 0;
+					
+					console.log('使用totalStats计算合计:', {
+						totalStats,
+						finalTotal
+					});
+					
+					tableData.push({
+						department: '合计',
+						profession: '',
+						reporter_name: '',
+						total: finalTotal,
+						一般: '',
+						严重: '',
+						新的_一般: '',
+						新的_严重: '',
+						isSubtotal: false,
+						isTotal: true
+					});
+				}
+				
+				this.reportDetailsTableData = tableData;
+			},
+			
+			exportReportDetails() {
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					});
+					
+					const exportUrl = `/api/data/analysis/export-report-details?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('上报明细导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('导出上报明细失败: ' + (e.message || '未知错误'));
+				}
+			},
+			
+			// 处理月度统计表格数据
+			processMonthlyRatioData() {
+				const monthlyData = this.statisticsData.monthly_ratio_stats || [];
+				
+				// 生成月份列（202501-202512）
+				this.monthColumns = [];
+				for (let i = 1; i <= 12; i++) {
+					this.monthColumns.push(`2025${i.toString().padStart(2, '0')}`);
+				}
+				
+				// 创建数据映射
+				const dataMap = {};
+				monthlyData.forEach(item => {
+					dataMap[item.month] = item;
+				});
+				
+				// 创建表格数据
+				const totalRow = { type: '总计', total: 0 };
+				const seriousRow = { type: '严重的', total: 0 };
+				const seriousRatioRow = { type: '占比', total: '' };
+				const seriousPlusNewRow = { type: '严重的+新的', total: 0 };
+				const seriousPlusNewRatioRow = { type: '占比', total: '' };
+				
+				// 填充每个月的数据
+				this.monthColumns.forEach(month => {
+					const data = dataMap[month];
+					if (data) {
+						totalRow[month] = data.total;
+						seriousRow[month] = data.serious_count;
+						seriousRatioRow[month] = data.serious_ratio + '%';
+						seriousPlusNewRow[month] = data.new_serious_count;
+						seriousPlusNewRatioRow[month] = data.new_serious_ratio + '%';
+						
+						// 累计总数
+						totalRow.total += data.total;
+						seriousRow.total += data.serious_count;
+						seriousPlusNewRow.total += data.new_serious_count;
+					} else {
+						totalRow[month] = 0;
+						seriousRow[month] = 0;
+						seriousRatioRow[month] = '0.00%';
+						seriousPlusNewRow[month] = 0;
+						seriousPlusNewRatioRow[month] = '0.00%';
+					}
+				});
+				
+				// 计算总占比
+				seriousRatioRow.total = totalRow.total > 0 ? 
+					((seriousRow.total / totalRow.total * 100).toFixed(2) + '%') : '0.00%';
+				seriousPlusNewRatioRow.total = totalRow.total > 0 ? 
+					((seriousPlusNewRow.total / totalRow.total * 100).toFixed(2) + '%') : '0.00%';
+				
+				// 设置表格数据
+				this.monthlyRatioTableData = [
+					totalRow,
+					seriousRow,
+					seriousRatioRow,
+					seriousPlusNewRow,
+					seriousPlusNewRatioRow
+				];
+			},
+			
+			// 获取百分比颜色
+			getPercentageColor(type, value) {
+				if (type === '占比' && value && value !== '0.00%') {
+					return '#F56C6C'; // 红色
+				}
+				return '#333';
+			},
+			
+			getTypeColor(type) {
+				const colorMap = {
+					'总计': '#606266',      // 深灰色
+					'一般': '#67C23A',      // 绿色
+					'严重': '#F56C6C',      // 红色
+					'新的+一般': '#409EFF',  // 蓝色
+					'新的+严重': '#E6A23C'   // 橙色
+				};
+				return colorMap[type] || '#909399'; // 默认灰色
+			},
+
+			getChartHeight(value) {
+				// 计算图表高度百分比
+				if (!this.statisticsData.chart_data || this.statisticsData.chart_data.length === 0) {
+					return 0;
+				}
+				// 找出最大值
+				const maxValue = Math.max(...this.statisticsData.chart_data.map(item => item.value));
+				if (maxValue === 0) {
+					return 0;
+				}
+				// 计算百分比，最小20%，最大90%
+				const percentage = (value / maxValue) * 90;
+				return Math.max(20, percentage);
+			},
+			
+			async loadRewardCalculation() {
+				this.rewardCalculationLoading = true;
+				try {
+					const params = {
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					};
+					const res = await axios.get('/api/data/analysis/reward-calculation', { 
+						params, 
+						withCredentials: true 
+					});
+					this.rewardCalculationData = res.data;
+					
+					// 处理表格数据
+					this.processRewardCalculationTableData();
+				} catch (e) {
+					this.$message.error('加载奖励计算数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.rewardCalculationData = {
+						reward_details: [],
+						department_subtotals: {},
+						total_stats: {}
+					};
+					this.processRewardCalculationTableData();
+				} finally {
+					this.rewardCalculationLoading = false;
+				}
+			},
+			
+			processRewardCalculationTableData() {
+				const tableData = [];
+				const details = this.rewardCalculationData.reward_details || [];
+				const subtotals = this.rewardCalculationData.department_subtotals || {};
+				const totalStats = this.rewardCalculationData.total_stats || {};
+				
+				// 按科室分组
+				const departmentGroups = {};
+				details.forEach(detail => {
+					if (!departmentGroups[detail.department]) {
+						departmentGroups[detail.department] = [];
+					}
+					departmentGroups[detail.department].push(detail);
+				});
+				
+				// 生成表格数据
+				Object.keys(departmentGroups).sort().forEach(department => {
+					// 添加科室内的详细数据
+					departmentGroups[department].forEach(detail => {
+						tableData.push({
+							department: detail.department,
+							profession: detail.profession,
+							reporter_name: detail.reporter_name,
+							一般: detail.一般,
+							奖励_一般: detail.奖励_一般,
+							严重: detail.严重,
+							奖励_严重: detail.奖励_严重,
+							新的_一般: detail.新的_一般,
+							奖励_新的一般: detail.奖励_新的一般,
+							新的_严重: detail.新的_严重,
+							奖励_新的严重: detail.奖励_新的严重,
+							个人奖励合计: detail.个人奖励合计,
+							isSubtotal: false,
+							isTotal: false
+						});
+					});
+					
+					// 添加科室小计
+					if (subtotals[department]) {
+						tableData.push({
+							department: '小计',
+							profession: '',
+							reporter_name: '',
+							一般: subtotals[department].一般,
+							奖励_一般: subtotals[department].奖励_一般,
+							严重: subtotals[department].严重,
+							奖励_严重: subtotals[department].奖励_严重,
+							新的_一般: subtotals[department].新的_一般,
+							奖励_新的一般: subtotals[department].奖励_新的一般,
+							新的_严重: subtotals[department].新的_严重,
+							奖励_新的严重: subtotals[department].奖励_新的严重,
+							个人奖励合计: subtotals[department].个人奖励合计,
+							isSubtotal: true,
+							isTotal: false
+						});
+					}
+				});
+				
+				// 添加合计行
+				if (totalStats.一般 !== undefined) {
+					tableData.push({
+						department: '合计',
+						profession: '',
+						reporter_name: '',
+						一般: '',
+						奖励_一般: '',
+						严重: '',
+						奖励_严重: '',
+						新的_一般: '',
+						奖励_新的一般: '',
+						新的_严重: '',
+						奖励_新的严重: '',
+						个人奖励合计: totalStats.个人奖励合计,
+						isSubtotal: false,
+						isTotal: true
+					});
+				}
+				
+				this.rewardCalculationTableData = tableData;
+			},
+			
+			exportRewardCalculation() {
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					});
+					
+					const exportUrl = `/api/data/analysis/export-reward-calculation?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('奖励计算数据导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('导出奖励计算数据失败: ' + (e.message || '未知错误'));
+				}
+			},
+			
+			async loadDrugSummary() {
+				this.drugSummaryLoading = true;
+				try {
+					const params = {
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					};
+					const res = await axios.get('/api/data/analysis/drug-summary', { 
+						params, 
+						withCredentials: true 
+					});
+					this.drugSummaryData = res.data;
+					
+					// 处理表格数据
+					this.processDrugSummaryTableData();
+					
+					// 加载图表数据
+					await this.loadDrugSummaryCharts();
+				} catch (e) {
+					this.$message.error('加载药品汇总数据失败: ' + (e.response?.data?.message || '未知错误'));
+					this.drugSummaryData = [];
+					this.processDrugSummaryTableData();
+				} finally {
+					this.drugSummaryLoading = false;
+				}
+			},
+			
+			async loadDrugSummaryCharts() {
+				try {
+					const params = {
+						month: this.analysisFilters.month
+					};
+					const res = await axios.get('/api/data/analysis/drug-summary-charts', { 
+						params, 
+						withCredentials: true 
+					});
+					this.drugSummaryChartData = res.data;
+				} catch (e) {
+					console.error('加载药品汇总图表数据失败:', e);
+					this.drugSummaryChartData = {
+						bar_chart: [],
+						pie_chart: []
+					};
+				}
+			},
+			
+			processDrugSummaryTableData() {
+				const tableData = [...this.drugSummaryData];
+				
+				// 添加合计行
+				if (tableData.length > 0) {
+					let totalSevere = 0;
+					let totalGeneral = 0;
+					
+					tableData.forEach(item => {
+						totalSevere += item.严重 || 0;
+						totalGeneral += item.一般 || 0;
+					});
+					
+					tableData.push({
+						drug_name: '合计',
+						manufacturer: '',
+						严重: totalSevere,
+						一般: totalGeneral,
+						total: totalSevere + totalGeneral,
+						isTotal: true
+					});
+				}
+				
+				this.drugSummaryTableData = tableData;
+			},
+			
+			exportDrugSummary() {
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					});
+					
+					const exportUrl = `/api/data/analysis/export-drug-summary?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('药品汇总数据导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('导出药品汇总数据失败: ' + (e.message || '未知错误'));
+				}
+			},
+			
+			exportAllTabs() {
+				this.mergedExportLoading = true;
+				try {
+					// 构建导出URL
+					const params = new URLSearchParams({
+						startMonth: this.analysisFilters.startMonth,
+						endMonth: this.analysisFilters.endMonth
+					});
+					
+					const exportUrl = `/api/data/analysis/export-all-tabs?${params.toString()}`;
+					
+					// 创建隐藏的下载链接
+					const link = document.createElement('a');
+					link.href = exportUrl;
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					
+					this.$message.success('合并导出任务已开始，请稍候下载');
+				} catch (e) {
+					this.$message.error('合并导出失败: ' + (e.message || '未知错误'));
+				} finally {
+					// 延迟关闭loading，给用户足够的反馈时间
+					setTimeout(() => {
+						this.mergedExportLoading = false;
+					}, 2000);
+				}
+			},
+			
+			// 密码修改相关方法
+			validateConfirmPassword(rule, value, callback) {
+				if (value !== this.passwordForm.newPassword) {
+					callback(new Error('两次输入的密码不一致'));
+				} else {
+					callback();
+				}
+			},
+			
+			cancelPasswordChange() {
+				this.showPasswordDialog = false;
+				this.resetPasswordForm();
+			},
+			
+			resetPasswordForm() {
+				this.passwordForm = {
+					currentPassword: '',
+					newPassword: '',
+					confirmPassword: ''
+				};
+				if (this.$refs.passwordForm) {
+					this.$refs.passwordForm.clearValidate();
+				}
+			},
+			
+			// 工作量数据管理相关方法
+			async loadWorkloadData() {
+				try {
+					const response = await axios.get('/api/workload/data', { withCredentials: true });
+					if (response.data.success) {
+						this.workloadData = response.data.data;
+						// 初始化过滤数据为全部数据
+						this.filterWorkloadData();
+					}
+				} catch (error) {
+					console.error('加载工作量数据失败:', error);
+				}
+			},
+
+			// 筛选工作量数据
+			filterWorkloadData() {
+				['sample', 'income', 'critical'].forEach(type => {
+					let data = [...this.workloadData[type]];
+
+					// 按年份筛选
+					if (this.workloadQueryYear) {
+						data = data.filter(item => item.year === this.workloadQueryYear);
+					}
+
+					// 按月份区间筛选（如果设置了起始月份或结束月份）
+					if (this.workloadQueryMonthStart || this.workloadQueryMonthEnd) {
+						data = data.map(item => {
+							const filteredItem = { ...item };
+							const start = this.workloadQueryMonthStart || 1;
+							const end = this.workloadQueryMonthEnd || 12;
+
+							// 计算区间内的总和
+							let total = 0;
+							for (let month = 1; month <= 12; month++) {
+								if (month < start || month > end) {
+									// 不在区间内的月份设为null（不显示）
+									filteredItem[`month_${month}`] = null;
+								} else {
+									total += item[`month_${month}`] || 0;
+								}
+							}
+							filteredItem.total = total;
+							return filteredItem;
+						});
+					}
+
+					this.filteredWorkloadData[type] = data;
+				});
+
+				// 重置分页到第一页
+				['sample', 'income', 'critical'].forEach(type => {
+					this.workloadPagination[type].currentPage = 1;
+				});
+			},
+
+			// 重置筛选条件
+			resetWorkloadFilter() {
+				this.workloadQueryYear = null;
+				this.workloadQueryMonthStart = null;
+				this.workloadQueryMonthEnd = null;
+				this.filterWorkloadData();
+			},
+
+			// 生成季度对比图表
+			generateQuarterlyChart() {
+				if (!this.visualQueryYear) {
+					this.$message.warning('请选择年度');
+					return;
+				}
+				if (!this.visualMonthStart || !this.visualMonthEnd) {
+					this.$message.warning('请选择月份区间');
+					return;
+				}
+				if (this.visualMonthStart > this.visualMonthEnd) {
+					this.$message.warning('起始月份不能大于结束月份');
+					return;
+				}
+
+				// 判断是否只选择了一个月
+				const isSingleMonth = this.visualMonthStart === this.visualMonthEnd;
+
+				if (isSingleMonth) {
+					// 单月模式：统计当前月、上个月、去年同月
+					const currentMonth = this.visualMonthStart;
+
+					// 计算上个月
+					let previousMonth, previousMonthYear;
+					if (currentMonth === 1) {
+						previousMonth = 12;
+						previousMonthYear = this.visualQueryYear - 1;
+					} else {
+						previousMonth = currentMonth - 1;
+						previousMonthYear = this.visualQueryYear;
+					}
+
+					// 去年同月
+					const lastYearSameMonth = currentMonth;
+					const lastYearSameYear = this.visualQueryYear - 1;
+
+					// 生成样品测定量图表（单月模式）
+					this.generateSampleChartByMonth(currentMonth, this.visualQueryYear, previousMonth, previousMonthYear, lastYearSameMonth, lastYearSameYear);
+
+					// 生成收入图表（单月模式）
+					this.generateIncomeChartByMonth(currentMonth, this.visualQueryYear, previousMonth, previousMonthYear, lastYearSameMonth, lastYearSameYear);
+				} else {
+					// 季度模式：原有逻辑
+					// 定义季度划分
+					const quarters = [
+						{ name: '第一季度', months: [1, 2, 3], index: 1 },
+						{ name: '第二季度', months: [4, 5, 6], index: 2 },
+						{ name: '第三季度', months: [7, 8, 9], index: 3 },
+						{ name: '第四季度', months: [10, 11, 12], index: 4 }
+					];
+
+					// 根据选择的月份区间确定当前季度
+					let currentQuarter = null;
+					for (let quarter of quarters) {
+						if (quarter.months.includes(this.visualMonthStart) || quarter.months.includes(this.visualMonthEnd)) {
+							currentQuarter = quarter;
+							break;
+						}
+					}
+
+					if (!currentQuarter) {
+						this.$message.warning('无法确定季度');
+						return;
+					}
+
+					// 计算上个季度
+					let previousQuarter, previousYear;
+					if (currentQuarter.index === 1) {
+						previousQuarter = quarters[3]; // 第四季度
+						previousYear = this.visualQueryYear - 1;
+					} else {
+						previousQuarter = quarters[currentQuarter.index - 2];
+						previousYear = this.visualQueryYear;
+					}
+
+					// 去年同期
+					const lastYearSameQuarter = currentQuarter;
+					const lastYearSameYear = this.visualQueryYear - 1;
+
+					// 生成样品测定量图表
+					this.generateSampleChart(currentQuarter, previousQuarter, previousYear, lastYearSameQuarter, lastYearSameYear);
+
+					// 生成收入图表
+					this.generateIncomeChart(currentQuarter, previousQuarter, previousYear, lastYearSameQuarter, lastYearSameYear);
+				}
+
+				if (this.quarterlyChartData.length === 0 && this.incomeChartData.length === 0) {
+					this.$message.warning('所选月份区间没有数据');
+				}
+			},
+
+			// 生成项目图表
+			generateProjectCharts() {
+				if (!this.projectQueryYear) {
+					this.$message.warning('请选择年度');
+					return;
+				}
+				if (!this.projectQueryQuarter) {
+					this.$message.warning('请选择季度');
+					return;
+				}
+
+				// 定义季度划分
+				const quarters = [
+					{ name: '第一季度', months: [1, 2, 3] },
+					{ name: '第二季度', months: [4, 5, 6] },
+					{ name: '第三季度', months: [7, 8, 9] },
+					{ name: '第四季度', months: [10, 11, 12] }
+				];
+
+				// 获取选中的季度
+				const selectedQuarter = quarters[this.projectQueryQuarter - 1];
+
+				// 生成项目收入图表
+				this.generateProjectIncomeChart(selectedQuarter);
+
+				// 生成项目样品测定量饼状图
+				this.generateProjectSamplePieChart(selectedQuarter);
+
+				if (this.projectIncomeChartData.length === 0 && this.projectSampleChartData.length === 0) {
+					this.$message.warning('所选季度没有数据');
+				}
+			},
+
+			// 生成危急值图表
+			generateCriticalCharts() {
+				if (!this.criticalQueryYear) {
+					this.$message.warning('请选择年度');
+					return;
+				}
+				if (!this.criticalQueryQuarter) {
+					this.$message.warning('请选择季度');
+					return;
+				}
+
+				// 定义季度划分
+				const quarters = [
+					{ name: '第一季度', months: [1, 2, 3] },
+					{ name: '第二季度', months: [4, 5, 6] },
+					{ name: '第三季度', months: [7, 8, 9] },
+					{ name: '第四季度', months: [10, 11, 12] }
+				];
+
+				// 获取当前季度和上个季度
+				const currentQuarter = quarters[this.criticalQueryQuarter - 1];
+				let previousQuarter, previousYear;
+
+				if (this.criticalQueryQuarter === 1) {
+					// 如果是第一季度，上个季度是去年第四季度
+					previousQuarter = quarters[3];
+					previousYear = this.criticalQueryYear - 1;
+				} else {
+					// 否则是当前年的上一季度
+					previousQuarter = quarters[this.criticalQueryQuarter - 2];
+					previousYear = this.criticalQueryYear;
+				}
+
+				// 生成季度对比柱状图
+				this.generateCriticalCompareChart(currentQuarter, previousQuarter, previousYear);
+
+				// 生成当前季度项目分布饼状图
+				this.generateCriticalProjectChart(currentQuarter);
+
+				if (this.criticalCompareChartData.length === 0 && this.criticalProjectChartData.length === 0) {
+					this.$message.warning('所选季度没有数据');
+				}
+			},
+
+			// 生成危急值季度对比图表
+			generateCriticalCompareChart(currentQuarter, previousQuarter, previousYear) {
+				const chartData = [];
+				let maxValue = 0;
+
+				// 统计上个季度的危急值
+				const previousYearData = this.workloadData.critical.filter(item => item.year === previousYear);
+				let previousTotal = 0;
+				previousYearData.forEach(item => {
+					previousQuarter.months.forEach(month => {
+						previousTotal += item[`month_${month}`] || 0;
+					});
+				});
+
+				chartData.push({
+					quarter: previousQuarter.name,
+					value: previousTotal
+				});
+				maxValue = Math.max(maxValue, previousTotal);
+
+				// 统计当前季度的危急值
+				const currentYearData = this.workloadData.critical.filter(item => item.year === this.criticalQueryYear);
+				let currentTotal = 0;
+				currentYearData.forEach(item => {
+					currentQuarter.months.forEach(month => {
+						currentTotal += item[`month_${month}`] || 0;
+					});
+				});
+
+				chartData.push({
+					quarter: currentQuarter.name,
+					value: currentTotal
+				});
+				maxValue = Math.max(maxValue, currentTotal);
+
+				this.criticalCompareChartData = chartData;
+				this.maxCriticalValue = maxValue;
+			},
+
+			// 生成危急值项目分布饼状图
+			generateCriticalProjectChart(currentQuarter) {
+				// 获取当前年度的危急值数据
+				const currentYearData = this.workloadData.critical.filter(item => item.year === this.criticalQueryYear);
+
+				// 按项目统计危急值数量
+				const projectMap = new Map();
+				const quarterMonths = currentQuarter.months;
+
+				currentYearData.forEach(item => {
+					const projectName = item.project_name;
+					if (!projectMap.has(projectName)) {
+						projectMap.set(projectName, 0);
+					}
+
+					// 累加季度的危急值数量
+					quarterMonths.forEach(month => {
+						const monthValue = item[`month_${month}`] || 0;
+						projectMap.set(projectName, projectMap.get(projectName) + monthValue);
+					});
+				});
+
+				// 转换为数组，过滤掉数量为0的项目，并计算总数
+				const projectArray = Array.from(projectMap, ([projectName, count]) => ({
+					projectName,
+					count
+				})).filter(item => item.count > 0);
+
+				const totalCount = projectArray.reduce((sum, item) => sum + item.count, 0);
+
+				if (totalCount === 0) {
+					this.criticalProjectChartData = [];
+					return;
+				}
+
+				// 计算每个项目的百分比和饼图路径
+				let currentAngle = -90;
+
+				const chartData = projectArray.map(item => {
+					const percentage = (item.count / totalCount) * 100;
+					const angle = (percentage / 100) * 360;
+
+					const startAngle = currentAngle * Math.PI / 180;
+					const endAngle = (currentAngle + angle) * Math.PI / 180;
+					const radius = 100;
+
+					const x1 = radius * Math.cos(startAngle);
+					const y1 = radius * Math.sin(startAngle);
+					const x2 = radius * Math.cos(endAngle);
+					const y2 = radius * Math.sin(endAngle);
+
+					const largeArcFlag = angle > 180 ? 1 : 0;
+					const path = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+					const midAngle = (currentAngle + angle / 2) * Math.PI / 180;
+					// 引导线起点（从饼图边缘外侧开始，增加3px间隙）
+					const lineStartRadius = radius + 3;
+					const lineStartX = lineStartRadius * Math.cos(midAngle);
+					const lineStartY = lineStartRadius * Math.sin(midAngle);
+
+					// 判断标签在左侧还是右侧
+					const isRightSide = Math.cos(midAngle) > 0;
+
+					// 引导线终点（直线延伸）
+					const lineLength = 85; // 引导线长度
+					const lineEndX = lineStartX + (isRightSide ? lineLength : -lineLength);
+					const lineEndY = lineStartY;
+
+					const labelX = isRightSide ? lineEndX + 5 : lineEndX - 5;
+					const labelY = lineEndY + 4;
+					const labelAlign = isRightSide ? 'start' : 'end';
+
+					currentAngle += angle;
+
+					return {
+						projectName: item.projectName,
+						count: item.count,
+						percentage: percentage,
+						path: path,
+						lineStartX: lineStartX,
+						lineStartY: lineStartY,
+						lineEndX: lineEndX,
+						lineEndY: lineEndY,
+						labelX: labelX,
+						labelY: labelY,
+						labelAlign: labelAlign
+					};
+				});
+
+				// 调整标签位置以防止重叠
+				this.criticalProjectChartData = this.adjustPieChartLabels(chartData);
+			},
+
+			// 计算危急值柱子高度
+			getCriticalBarHeight(value) {
+				if (!this.maxCriticalValue || this.maxCriticalValue === 0) {
+					return 30;
+				}
+				if (value === 0) {
+					return 30;
+				}
+				const height = (value / this.maxCriticalValue) * 290;
+				return Math.max(30, height);
+			},
+
+			// 生成样品测定量图表（单月模式）
+			generateSampleChartByMonth(currentMonth, currentYear, previousMonth, previousMonthYear, lastYearSameMonth, lastYearSameYear) {
+				// 获取各年度的样品测定量数据
+				const currentYearData = this.workloadData.sample.filter(item => item.year === currentYear);
+				const previousMonthYearData = this.workloadData.sample.filter(item => item.year === previousMonthYear);
+				const lastYearData = this.workloadData.sample.filter(item => item.year === lastYearSameYear);
+
+				let maxValue = 0;
+
+				// 统计当前月
+				let currentMonthTotal = 0;
+				currentYearData.forEach(item => {
+					currentMonthTotal += item[`month_${currentMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, currentMonthTotal);
+
+				// 统计上个月
+				let previousMonthTotal = 0;
+				previousMonthYearData.forEach(item => {
+					previousMonthTotal += item[`month_${previousMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, previousMonthTotal);
+
+				// 统计去年同月
+				let lastYearSameMonthTotal = 0;
+				lastYearData.forEach(item => {
+					lastYearSameMonthTotal += item[`month_${lastYearSameMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, lastYearSameMonthTotal);
+
+				this.quarterlyChartData = [{
+					quarter: `${currentMonth}月`,
+					currentQuarter: currentMonthTotal,
+					previousQuarter: previousMonthTotal,
+					lastYearSame: lastYearSameMonthTotal,
+					currentQuarterName: `${currentMonth}月`,
+					currentQuarterYear: currentYear,
+					previousQuarterName: `${previousMonth}月`,
+					previousQuarterYear: previousMonthYear,
+					lastYearSameQuarterName: `去年${lastYearSameMonth}月`
+				}];
+
+				this.maxQuarterlyValue = maxValue;
+			},
+
+			// 生成样品测定量图表（季度模式）
+			generateSampleChart(currentQuarter, previousQuarter, previousYear, lastYearSameQuarter, lastYearSameYear) {
+				// 获取各年度的样品测定量数据
+				const currentYearData = this.workloadData.sample.filter(item => item.year === this.visualQueryYear);
+				const previousYearData = this.workloadData.sample.filter(item => item.year === previousYear);
+				const lastYearData = this.workloadData.sample.filter(item => item.year === lastYearSameYear);
+
+				let maxValue = 0;
+
+				// 统计当前季度
+				let currentQuarterTotal = 0;
+				currentYearData.forEach(item => {
+					currentQuarter.months.forEach(month => {
+						currentQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, currentQuarterTotal);
+
+				// 统计上个季度
+				let previousQuarterTotal = 0;
+				previousYearData.forEach(item => {
+					previousQuarter.months.forEach(month => {
+						previousQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, previousQuarterTotal);
+
+				// 统计去年同期
+				let lastYearSameQuarterTotal = 0;
+				lastYearData.forEach(item => {
+					lastYearSameQuarter.months.forEach(month => {
+						lastYearSameQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, lastYearSameQuarterTotal);
+
+				this.quarterlyChartData = [{
+					quarter: currentQuarter.name,
+					currentQuarter: currentQuarterTotal,
+					previousQuarter: previousQuarterTotal,
+					lastYearSame: lastYearSameQuarterTotal,
+					currentQuarterName: currentQuarter.name,
+					currentQuarterYear: this.visualQueryYear,
+					previousQuarterName: previousQuarter.name,
+					previousQuarterYear: previousYear,
+					lastYearSameQuarterName: lastYearSameQuarter.name
+				}];
+
+				this.maxQuarterlyValue = maxValue;
+			},
+
+			// 生成收入图表（单月模式）
+			generateIncomeChartByMonth(currentMonth, currentYear, previousMonth, previousMonthYear, lastYearSameMonth, lastYearSameYear) {
+				// 获取各年度的收入数据
+				const currentYearData = this.workloadData.income.filter(item => item.year === currentYear);
+				const previousMonthYearData = this.workloadData.income.filter(item => item.year === previousMonthYear);
+				const lastYearData = this.workloadData.income.filter(item => item.year === lastYearSameYear);
+
+				let maxValue = 0;
+
+				// 统计当前月
+				let currentMonthTotal = 0;
+				currentYearData.forEach(item => {
+					currentMonthTotal += item[`month_${currentMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, currentMonthTotal);
+
+				// 统计上个月
+				let previousMonthTotal = 0;
+				previousMonthYearData.forEach(item => {
+					previousMonthTotal += item[`month_${previousMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, previousMonthTotal);
+
+				// 统计去年同月
+				let lastYearSameMonthTotal = 0;
+				lastYearData.forEach(item => {
+					lastYearSameMonthTotal += item[`month_${lastYearSameMonth}`] || 0;
+				});
+				maxValue = Math.max(maxValue, lastYearSameMonthTotal);
+
+				this.incomeChartData = [{
+					quarter: `${currentMonth}月`,
+					currentQuarter: currentMonthTotal,
+					previousQuarter: previousMonthTotal,
+					lastYearSame: lastYearSameMonthTotal,
+					currentQuarterName: `${currentMonth}月`,
+					currentQuarterYear: currentYear,
+					previousQuarterName: `${previousMonth}月`,
+					previousQuarterYear: previousMonthYear,
+					lastYearSameQuarterName: `去年${lastYearSameMonth}月`
+				}];
+
+				this.maxIncomeValue = maxValue;
+			},
+
+			// 生成收入图表（季度模式）
+			generateIncomeChart(currentQuarter, previousQuarter, previousYear, lastYearSameQuarter, lastYearSameYear) {
+				// 获取各年度的收入数据
+				const currentYearData = this.workloadData.income.filter(item => item.year === this.visualQueryYear);
+				const previousYearData = this.workloadData.income.filter(item => item.year === previousYear);
+				const lastYearData = this.workloadData.income.filter(item => item.year === lastYearSameYear);
+
+				let maxValue = 0;
+
+				// 统计当前季度
+				let currentQuarterTotal = 0;
+				currentYearData.forEach(item => {
+					currentQuarter.months.forEach(month => {
+						currentQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, currentQuarterTotal);
+
+				// 统计上个季度
+				let previousQuarterTotal = 0;
+				previousYearData.forEach(item => {
+					previousQuarter.months.forEach(month => {
+						previousQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, previousQuarterTotal);
+
+				// 统计去年同期
+				let lastYearSameQuarterTotal = 0;
+				lastYearData.forEach(item => {
+					lastYearSameQuarter.months.forEach(month => {
+						lastYearSameQuarterTotal += item[`month_${month}`] || 0;
+					});
+				});
+				maxValue = Math.max(maxValue, lastYearSameQuarterTotal);
+
+				this.incomeChartData = [{
+					quarter: currentQuarter.name,
+					currentQuarter: currentQuarterTotal,
+					previousQuarter: previousQuarterTotal,
+					lastYearSame: lastYearSameQuarterTotal,
+					currentQuarterName: currentQuarter.name,
+					currentQuarterYear: this.visualQueryYear,
+					previousQuarterName: previousQuarter.name,
+					previousQuarterYear: previousYear,
+					lastYearSameQuarterName: lastYearSameQuarter.name
+				}];
+
+				this.maxIncomeValue = maxValue;
+			},
+
+			// 生成项目收入图表
+			generateProjectIncomeChart(selectedQuarter) {
+				if (!selectedQuarter) {
+					this.projectIncomeChartData = [];
+					this.maxProjectIncome = 0;
+					return;
+				}
+
+				// 获取选中年度的收入数据
+				const currentYearData = this.workloadData.income.filter(item => item.year === this.projectQueryYear);
+
+				// 按项目统计收入
+				const projectMap = new Map();
+
+				// 统计选中季度的所有月份
+				const quarterMonths = selectedQuarter.months;
+
+				currentYearData.forEach(item => {
+					const projectName = item.project_name;
+					if (!projectMap.has(projectName)) {
+						projectMap.set(projectName, 0);
+					}
+
+					// 累加季度的收入
+					quarterMonths.forEach(month => {
+						const monthValue = item[`month_${month}`] || 0;
+						projectMap.set(projectName, projectMap.get(projectName) + monthValue);
+					});
+				});
+
+				// 转换为数组并按收入降序排序
+				const chartData = Array.from(projectMap, ([projectName, income]) => ({
+					projectName,
+					income
+				})).sort((a, b) => b.income - a.income);
+
+				// 计算最大收入
+				const maxIncome = chartData.length > 0 ? Math.max(...chartData.map(item => item.income)) : 0;
+
+				this.projectIncomeChartData = chartData;
+				this.maxProjectIncome = maxIncome;
+			},
+
+			// 生成项目样品测定量饼状图
+			generateProjectSamplePieChart(selectedQuarter) {
+				if (!selectedQuarter) {
+					this.projectSampleChartData = [];
+					return;
+				}
+
+				// 获取选中年度的样品测定量数据
+				const currentYearData = this.workloadData.sample.filter(item => item.year === this.projectQueryYear);
+
+				// 按项目统计样品数量
+				const projectMap = new Map();
+
+				// 统计选中季度的所有月份
+				const quarterMonths = selectedQuarter.months;
+
+				currentYearData.forEach(item => {
+					const projectName = item.project_name;
+					if (!projectMap.has(projectName)) {
+						projectMap.set(projectName, 0);
+					}
+
+					// 累加季度的样品数量
+					quarterMonths.forEach(month => {
+						const monthValue = item[`month_${month}`] || 0;
+						projectMap.set(projectName, projectMap.get(projectName) + monthValue);
+					});
+				});
+
+				// 转换为数组并按数量降序排序
+				let projectArray = Array.from(projectMap, ([projectName, count]) => ({
+					projectName,
+					count
+				})).sort((a, b) => b.count - a.count);
+
+				// 只保留前10名，其余合并为"其他"
+				if (projectArray.length > 10) {
+					const top10 = projectArray.slice(0, 10);
+					const others = projectArray.slice(10);
+					const othersCount = others.reduce((sum, item) => sum + item.count, 0);
+
+					if (othersCount > 0) {
+						top10.push({
+							projectName: '其他',
+							count: othersCount
+						});
+					}
+					projectArray = top10;
+				}
+
+				const totalCount = projectArray.reduce((sum, item) => sum + item.count, 0);
+
+				if (totalCount === 0) {
+					this.projectSampleChartData = [];
+					return;
+				}
+
+				// 计算每个项目的百分比和饼图路径
+				let currentAngle = -90; // 从顶部开始（-90度）
+
+				const chartData = projectArray.map(item => {
+					const percentage = (item.count / totalCount) * 100;
+					const angle = (percentage / 100) * 360;
+
+					// 计算饼图扇形路径
+					const startAngle = currentAngle * Math.PI / 180;
+					const endAngle = (currentAngle + angle) * Math.PI / 180;
+					const radius = 100;
+
+					const x1 = radius * Math.cos(startAngle);
+					const y1 = radius * Math.sin(startAngle);
+					const x2 = radius * Math.cos(endAngle);
+					const y2 = radius * Math.sin(endAngle);
+
+					const largeArcFlag = angle > 180 ? 1 : 0;
+
+					const path = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+					// 计算扇形中间角度
+					const midAngle = (currentAngle + angle / 2) * Math.PI / 180;
+
+					// 引导线起点（从饼图边缘外侧开始，增加3px间隙）
+					const lineStartRadius = radius + 3;
+					const lineStartX = lineStartRadius * Math.cos(midAngle);
+					const lineStartY = lineStartRadius * Math.sin(midAngle);
+
+					// 判断标签在左侧还是右侧
+					const isRightSide = Math.cos(midAngle) > 0;
+
+					// 引导线终点（直线延伸）
+					const lineLength = 85; // 引导线长度
+					const lineEndX = lineStartX + (isRightSide ? lineLength : -lineLength);
+					const lineEndY = lineStartY;
+
+					// 标签位置（在直线末端）
+					const labelX = isRightSide ? lineEndX + 5 : lineEndX - 5;
+					const labelY = lineEndY + 4; // 稍微向下偏移，使文字垂直居中
+					const labelAlign = isRightSide ? 'start' : 'end';
+
+					currentAngle += angle;
+
+					return {
+						projectName: item.projectName,
+						count: item.count,
+						percentage: percentage,
+						path: path,
+						lineStartX: lineStartX,
+						lineStartY: lineStartY,
+						lineEndX: lineEndX,
+						lineEndY: lineEndY,
+						labelX: labelX,
+						labelY: labelY,
+						labelAlign: labelAlign,
+						hovered: false
+					};
+				});
+
+				// 调整标签位置以防止重叠
+				this.projectSampleChartData = this.adjustPieChartLabels(chartData);
+			},
+
+			// 调整饼图标签位置以防止重叠
+			adjustPieChartLabels(chartData) {
+				if (chartData.length === 0) return chartData;
+
+				const minDistance = 18; // 最小垂直间距（像素）
+
+				// 分别处理左侧和右侧的标签
+				const leftLabels = chartData.filter(item => item.labelAlign === 'end').sort((a, b) => a.labelY - b.labelY);
+				const rightLabels = chartData.filter(item => item.labelAlign === 'start').sort((a, b) => a.labelY - b.labelY);
+
+				// 调整标签位置的函数
+				const adjustLabels = (labels) => {
+					for (let i = 1; i < labels.length; i++) {
+						const prevLabel = labels[i - 1];
+						const currLabel = labels[i];
+						const distance = currLabel.labelY - prevLabel.labelY;
+
+						if (distance < minDistance) {
+							// 如果距离太近，向下移动当前标签
+							currLabel.labelY = prevLabel.labelY + minDistance;
+							currLabel.lineEndY = currLabel.labelY - 4;
+						}
+					}
+				};
+
+				adjustLabels(leftLabels);
+				adjustLabels(rightLabels);
+
+				return chartData;
+			},
+
+			// 计算样品柱子高度
+			getBarHeight(value) {
+				if (!this.maxQuarterlyValue || this.maxQuarterlyValue === 0) {
+					return 30;
+				}
+				if (value === 0) {
+					return 30; // 0值显示最小高度
+				}
+				// 最大高度300px（留出10px空间）
+				const height = (value / this.maxQuarterlyValue) * 300;
+				return Math.max(30, height); // 最小高度30px
+			},
+
+			// 计算收入柱子高度
+			getIncomeBarHeight(value) {
+				if (!this.maxIncomeValue || this.maxIncomeValue === 0) {
+					return 30;
+				}
+				if (value === 0) {
+					return 30; // 0值显示最小高度
+				}
+				// 最大高度300px（留出10px空间）
+				const height = (value / this.maxIncomeValue) * 300;
+				return Math.max(30, height); // 最小高度30px
+			},
+
+			// 计算项目柱子宽度（百分比）
+			getProjectBarWidth(value) {
+				if (!this.maxProjectIncome || this.maxProjectIncome === 0) {
+					return 0;
+				}
+				if (value === 0) {
+					return 0;
+				}
+				// 返回相对于最大值的百分比
+				return (value / this.maxProjectIncome) * 100;
+			},
+
+			// 格式化金额
+			formatMoney(value) {
+				if (!value || value === 0) return '0';
+				// 转换为千分位格式
+				return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+			},
+
+			// 生成总体监测情况汇报图表
+			generateOverallChart() {
+				if (!this.overallQueryYear) {
+					this.$message.warning('请选择年度');
+					return;
+				}
+				if (!this.overallMonthStart || !this.overallMonthEnd) {
+					this.$message.warning('请选择月份区间');
+					return;
+				}
+				if (this.overallMonthStart > this.overallMonthEnd) {
+					this.$message.warning('起始月份不能大于结束月份');
+					return;
+				}
+
+				// 获取选中年度的数据
+				const sampleData = this.workloadData.sample.filter(item => item.year === this.overallQueryYear);
+				const incomeData = this.workloadData.income.filter(item => item.year === this.overallQueryYear);
+
+				const chartData = [];
+				let maxSample = 0;
+				let maxIncome = 0;
+
+				// 遍历月份区间
+				for (let month = this.overallMonthStart; month <= this.overallMonthEnd; month++) {
+					// 统计该月的样品测定量总数
+					let sampleCount = 0;
+					sampleData.forEach(item => {
+						sampleCount += item[`month_${month}`] || 0;
+					});
+					maxSample = Math.max(maxSample, sampleCount);
+
+					// 统计该月的收入总数
+					let income = 0;
+					incomeData.forEach(item => {
+						income += item[`month_${month}`] || 0;
+					});
+					maxIncome = Math.max(maxIncome, income);
+
+					chartData.push({
+						month: month,
+						sampleCount: sampleCount,
+						income: income
+					});
+				}
+
+				this.overallChartData = chartData;
+				this.maxOverallSample = maxSample || 1; // 避免除以0
+				this.maxOverallIncome = maxIncome || 1;
+
+				if (chartData.length === 0) {
+					this.$message.warning('所选月份区间没有数据');
+				}
+			},
+
+			// 计算柱状图高度百分比
+			getOverallBarHeight(value) {
+				if (!this.maxOverallSample || this.maxOverallSample === 0) {
+					return 5;
+				}
+				if (value === 0) {
+					return 5;
+				}
+				// 返回相对于最大值的百分比（0-100%）
+				const percentage = (value / this.maxOverallSample) * 100;
+				return Math.max(5, percentage); // 最小5%，避免太小看不见
+			},
+
+			// 获取折线图的坐标点
+			getOverallLinePoints() {
+				if (this.overallChartData.length === 0) {
+					return '';
+				}
+
+				// 如果只有一个点，需要特殊处理
+				if (this.overallChartData.length === 1) {
+					const y = 100 - ((this.overallChartData[0].income / this.maxOverallIncome) * 100);
+					return `50,${y}`;
+				}
+
+				const points = this.overallChartData.map((item, index) => {
+					// X坐标：根据索引均匀分布在0-100%之间
+					const x = (index / (this.overallChartData.length - 1)) * 100;
+					// Y坐标：根据收入值计算，需要反转（SVG坐标系Y轴向下）
+					const y = 100 - ((item.income / this.maxOverallIncome) * 100);
+					return `${x},${y}`;
+				});
+
+				return points.join(' ');
+			},
+
+			// 获取折线图的数据点（用于显示圆点和标签）
+			getOverallDataPoints() {
+				if (this.overallChartData.length === 0) {
+					return [];
+				}
+
+				// 如果只有一个点，特殊处理
+				if (this.overallChartData.length === 1) {
+					const y = 100 - ((this.overallChartData[0].income / this.maxOverallIncome) * 100);
+					return [{
+						x: 50,
+						y: y,
+						value: this.overallChartData[0].income
+					}];
+				}
+
+				return this.overallChartData.map((item, index) => {
+					const x = (index / (this.overallChartData.length - 1)) * 100;
+					const y = 100 - ((item.income / this.maxOverallIncome) * 100);
+					return {
+						x: x,
+						y: y,
+						value: item.income
+					};
+				});
+			},
+
+			// 导出图表为图片
+			async exportChartAsImage(type) {
+				let chartId, chartName, fileName;
+				const quarterNames = ['第一季度', '第二季度', '第三季度', '第四季度'];
+
+				if (type === 'sample') {
+					chartId = 'sampleChart';
+					chartName = '样品测定量季度对比';
+					fileName = `${chartName}_${this.visualQueryYear}年_${this.visualMonthStart}-${this.visualMonthEnd}月.png`;
+				} else if (type === 'income') {
+					chartId = 'incomeChart';
+					chartName = '收入季度对比';
+					fileName = `${chartName}_${this.visualQueryYear}年_${this.visualMonthStart}-${this.visualMonthEnd}月.png`;
+				} else if (type === 'overall') {
+					chartId = 'overallChart';
+					chartName = '样品测定量与收入月度趋势';
+					fileName = `${chartName}_${this.overallQueryYear}年_${this.overallMonthStart}-${this.overallMonthEnd}月.png`;
+				} else if (type === 'project') {
+					chartId = 'projectChart';
+					chartName = '各项目总收入对比';
+					fileName = `${chartName}_${this.projectQueryYear}年_${quarterNames[this.projectQueryQuarter - 1]}.png`;
+				} else if (type === 'pie') {
+					chartId = 'pieChart';
+					chartName = '各项目样品测定量占比';
+					fileName = `${chartName}_${this.projectQueryYear}年_${quarterNames[this.projectQueryQuarter - 1]}.png`;
+				} else if (type === 'criticalCompare') {
+					chartId = 'criticalCompareChart';
+					chartName = '危急值季度对比';
+					fileName = `${chartName}_${this.criticalQueryYear}年_${quarterNames[this.criticalQueryQuarter - 1]}.png`;
+				} else if (type === 'criticalProject') {
+					chartId = 'criticalProjectChart';
+					chartName = '当前季度危急值项目分布';
+					fileName = `${chartName}_${this.criticalQueryYear}年_${quarterNames[this.criticalQueryQuarter - 1]}.png`;
+				}
+				const element = document.getElementById(chartId);
+
+				if (!element) {
+					this.$message.error('图表元素未找到');
+					return;
+				}
+
+				try {
+					this.$message.info('正在生成图片，请稍候...');
+
+					// 使用html2canvas将DOM元素转换为canvas
+					const canvas = await html2canvas(element, {
+						backgroundColor: '#ffffff',
+						scale: 2, // 提高清晰度
+						logging: false,
+						useCORS: true
+					});
+
+					// 将canvas转换为图片并下载
+					canvas.toBlob((blob) => {
+						const url = URL.createObjectURL(blob);
+						const link = document.createElement('a');
+						link.href = url;
+						link.download = fileName;
+						document.body.appendChild(link);
+						link.click();
+						document.body.removeChild(link);
+						URL.revokeObjectURL(url);
+						this.$message.success('图片已导出');
+					});
+				} catch (error) {
+					console.error('导出图片失败:', error);
+					this.$message.error('导出图片失败');
+				}
+			},
+			
+			beforeWorkloadUpload(file) {
+				// 验证年份是否选择
+				if (!this.workloadYear) {
+					this.$message.error('请先选择导入数据的年份');
+					return false;
+				}
+
+				// 验证文件类型
+				const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+								file.type === 'application/vnd.ms-excel';
+				if (!isExcel) {
+					this.$message.error('只能上传Excel文件');
+					return false;
+				}
+
+				// 验证文件大小
+				const isLt10M = file.size / 1024 / 1024 < 10;
+				if (!isLt10M) {
+					this.$message.error('文件大小不能超过10MB');
+					return false;
+				}
+
+				return true;
+			},
+			
+			async handleWorkloadUploadSuccess(response, file, fileList) {
+				if (response.success) {
+					this.$message.success('文件上传成功！');
+					await this.loadWorkloadData();
+				} else {
+					this.$message.error(response.message || '文件上传失败');
+				}
+			},
+			
+			handleWorkloadUploadError(err, file, fileList) {
+				this.$message.error('文件上传失败：' + (err.message || '未知错误'));
+			},
+			
+			handleWorkloadPageChange(type, page) {
+				this.workloadPagination[type].currentPage = page;
+			},
+			
+			async deleteWorkloadData(type) {
+				try {
+					await this.$confirm('确定要删除所有' + this.getWorkloadTypeName(type) + '数据吗？', '警告', {
+						confirmButtonText: '确定',
+						cancelButtonText: '取消',
+						type: 'warning'
+					});
+					
+					const response = await axios.delete(`/api/workload/data/${type}`, { withCredentials: true });
+					if (response.data.success) {
+						this.$message.success('删除成功');
+						this.workloadData[type] = [];
+						this.workloadPagination[type].currentPage = 1;
+					} else {
+						this.$message.error(response.data.message || '删除失败');
+					}
+				} catch (error) {
+					if (error !== 'cancel') {
+						this.$message.error('删除失败：' + (error.message || '未知错误'));
+					}
+				}
+			},
+			
+			getWorkloadTypeName(type) {
+				const names = {
+					sample: '样品测定量',
+					income: '收入',
+					critical: '危急值'
+				};
+				return names[type] || type;
+			},
+			
+			async changePassword() {
+				try {
+					// 表单验证
+					const valid = await new Promise((resolve) => {
+						this.$refs.passwordForm.validate((valid) => {
+							resolve(valid);
+						});
+					});
+					
+					if (!valid) {
+						return;
+					}
+					
+					this.passwordChangeLoading = true;
+					
+					const response = await axios.post('/api/auth/change-password', {
+						currentPassword: this.passwordForm.currentPassword,
+						newPassword: this.passwordForm.newPassword
+					}, {
+						withCredentials: true
+					});
+					
+					this.$message.success('密码修改成功');
+					this.showPasswordDialog = false;
+					this.resetPasswordForm();
+					
+				} catch (error) {
+					console.error('密码修改失败:', error);
+					if (error.response && error.response.data && error.response.data.message) {
+						this.$message.error('密码修改失败: ' + error.response.data.message);
+					} else {
+						this.$message.error('密码修改失败，请稍后重试');
+					}
+				} finally {
+					this.passwordChangeLoading = false;
+				}
+			},
+			
+			// 图表相关辅助方法
+			getMaxValue(chartData) {
+				if (!chartData || chartData.length === 0) return 1;
+				let max = 0;
+				chartData.forEach(item => {
+					max = Math.max(max, item.一般 || 0, item.严重 || 0);
+				});
+				return max || 1;
+			},
+
+			getPieColor(index) {
+				const colors = [
+					'#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399',
+					'#66B1FF', '#85CE61', '#F0B860', '#F78989', '#B3B3B3',
+					'#3A8EE6', '#5DAF34', '#CF9236', '#DD6161', '#82848A',
+					'#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
+					'#3BA272', '#FC8452', '#9A60B4', '#EA7CCC', '#6395FA',
+					'#62DAAB', '#657798', '#F6BD16', '#7262FD', '#78D3F8',
+					'#9661BC', '#F6903D', '#008685', '#F08BB4', '#B6A2DE',
+					'#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#E86452',
+					'#6DC8EC', '#945FB9', '#FF9845', '#1E9493', '#FF99C3'
+				];
+				return colors[index % colors.length];
+			},
+			
+			getPieSlices(pieData) {
+				if (!pieData || pieData.length === 0) return [];
+				
+				const total = pieData.reduce((sum, item) => sum + item.value, 0);
+				if (total === 0) return [];
+				
+				let currentAngle = 0;
+				const radius = 120;
+				
+				return pieData.map(item => {
+					const angle = (item.value / total) * 2 * Math.PI;
+					const startAngle = currentAngle;
+					const endAngle = currentAngle + angle;
+					
+					const x1 = Math.cos(startAngle) * radius;
+					const y1 = Math.sin(startAngle) * radius;
+					const x2 = Math.cos(endAngle) * radius;
+					const y2 = Math.sin(endAngle) * radius;
+					
+					const largeArcFlag = angle > Math.PI ? 1 : 0;
+					
+					const path = [
+						'M', 0, 0,
+						'L', x1, y1,
+						'A', radius, radius, 0, largeArcFlag, 1, x2, y2,
+						'Z'
+					].join(' ');
+					
+					currentAngle = endAngle;
+					
+					return { path };
+				});
+			}
+		}
+	});
+	</script>
+</body>
+</html>

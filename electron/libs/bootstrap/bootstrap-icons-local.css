@@ -1,0 +1,99 @@
+@font-face {
+  font-display: block;
+  font-family: "bootstrap-icons";
+  src: url("./fonts/bootstrap-icons.woff2") format("woff2"),
+       url("./fonts/bootstrap-icons.woff") format("woff");
+}
+
+.bi::before,
+[class^="bi-"]::before,
+[class*=" bi-"]::before {
+  display: inline-block;
+  font-family: "bootstrap-icons" !important;
+  font-style: normal;
+  font-weight: normal !important;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: -0.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.bi-person::before { content: "\f4da"; }
+.bi-lock::before { content: "\f47a"; }
+.bi-eye::before { content: "\f341"; }
+.bi-eye-slash::before { content: "\f33e"; }
+.bi-exclamation-circle-fill::before { content: "\f332"; }
+.bi-check-circle-fill::before { content: "\f26b"; }
+.bi-box-arrow-in-right::before { content: "\f1c3"; }
+.bi-box-arrow-right::before { content: "\f1c4"; }
+.bi-capsule::before { content: "\f5a0"; }
+.bi-person-fill::before { content: "\f4e1"; }
+.bi-exclamation-triangle-fill::before { content: "\f337"; }
+.bi-arrow-clockwise::before { content: "\f116"; }
+
+/* 菜单图标 */
+.bi-house-door::before { content: "\f422"; }
+.bi-house-door-fill::before { content: "\f424"; }
+.bi-folder2-open::before { content: "\f3a8"; }
+.bi-clipboard-data::before { content: "\f290"; }
+.bi-clipboard-data-fill::before { content: "\f291"; }
+.bi-grid-1x2-fill::before { content: "\f3f5"; }
+.bi-cloud-upload-fill::before { content: "\f27c"; }
+.bi-file-earmark-medical-fill::before { content: "\f387"; }
+.bi-bar-chart-fill::before { content: "\f17a"; }
+.bi-graph-up-arrow::before { content: "\f3fc"; }
+
+/* 仪表板图标 */
+.bi-database-fill::before { content: "\f2cd"; }
+.bi-cloud-arrow-up-fill::before { content: "\f275"; }
+.bi-funnel-fill::before { content: "\f3c8"; }
+.bi-calendar-month::before { content: "\f1f4"; }
+.bi-person-badge-fill::before { content: "\f4e0"; }
+.bi-file-earmark-plus-fill::before { content: "\f38a"; }
+.bi-graph-up::before { content: "\f3fb"; }
+.bi-pie-chart-fill::before { content: "\f4c7"; }
+.bi-pie-chart::before { content: "\f4c6"; }
+.bi-building::before { content: "\f1e6"; }
+.bi-bar-chart::before { content: "\f179"; }
+
+/* 其他常用图标 */
+.bi-upload::before { content: "\f603"; }
+.bi-download::before { content: "\f2ee"; }
+.bi-search::before { content: "\f52a"; }
+.bi-funnel::before { content: "\f3c7"; }
+.bi-table::before { content: "\f5a8"; }
+.bi-clock-history::before { content: "\f28c"; }
+.bi-inbox::before { content: "\f437"; }
+.bi-file-earmark-x::before { content: "\f39e"; }
+.bi-file-earmark-arrow-up::before { content: "\f36c"; }
+.bi-file-earmark-excel::before { content: "\f383"; }
+.bi-list-ul::before { content: "\f479"; }
+.bi-x-lg::before { content: "\f62a"; }
+.bi-sliders::before { content: "\f563"; }
+.bi-exclamation-circle::before { content: "\f331"; }
+.bi-check-circle::before { content: "\f26a"; }
+.bi-file-text::before { content: "\f3b1"; }
+.bi-arrow-up::before { content: "\f148"; }
+.bi-exclamation::before { content: "\f334"; }
+.bi-cloud-arrow-up::before { content: "\f274"; }
+
+/* AI 助手图标 */
+.bi-robot::before { content: "\f511"; }
+.bi-chat-dots::before { content: "\f249"; }
+.bi-send-fill::before { content: "\f52e"; }
+.bi-shield-check::before { content: "\f553"; }
+.bi-arrow-up-short::before { content: "\f145"; }
+
+/* 图表相关图标 */
+.bi-graph-up::before { content: "\f3fb"; }
+.bi-search::before { content: "\f52a"; }
+
+/* 工作量统计图标 */
+.bi-bar-chart-line-fill::before { content: "\f17c"; }
+.bi-bar-chart-steps::before { content: "\f17f"; }
+.bi-cash-stack::before { content: "\f234"; }
+.bi-trophy-fill::before { content: "\f5fa"; }
+.bi-diagram-3-fill::before { content: "\f2f2"; }
+.bi-lightning-fill::before { content: "\f46f"; }

@@ -1,0 +1,97 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CSC_IDENTITY_AUTO_DISCOVERY: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build Python Backend
+        shell: pwsh
+        working-directory: python-server
+        run: |
+          pip install -r requirements.txt pyinstaller
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          if (Test-Path build) { Remove-Item -Recurse -Force build }
+          pyinstaller --clean server.spec
+          if (-not (Test-Path dist/server.exe)) {
+            Write-Error "server.exe was not generated"
+          }
+
+      - name: Build Electron App
+        shell: pwsh
+        working-directory: electron
+        run: |
+          npm install
+          npm run build:win
+
+      - name: Verify Windows Installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter "*Setup*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "Windows installer not found in dist/"
+          }
+          Write-Host "Installer: $($installer.FullName)"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*Setup*.exe
+          if-no-files-found: error
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build Python Backend
+        working-directory: python-server
+        run: |
+          pip install -r requirements.txt pyinstaller
+          rm -rf dist build
+          pyinstaller --clean server.spec
+          test -f dist/server
+
+      - name: Build Electron App
+        working-directory: electron
+        run: |
+          npm install
+          npm run build:mac
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-installer
+          path: dist/*.dmg
+          if-no-files-found: error

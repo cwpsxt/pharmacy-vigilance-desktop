@@ -1,0 +1,35 @@
+# Python
+python-server/venv/
+python-server/__pycache__/
+python-server/**/__pycache__/
+python-server/*.pyc
+python-server/dist/
+python-server/build/
+python-server/data/*.sqlite3
+python-server/data/license.dat
+python-server/uploads/*
+!python-server/uploads/.gitkeep
+
+# Node / Electron
+electron/node_modules/
+electron/.npmrc
+
+# Build outputs
+dist/
+release/mac-arm64/
+release/*.dmg
+release/server
+
+# Vendor secrets (never commit)
+tools/private_key.pem
+tools/public_key.pem
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Backups
+backup_*/

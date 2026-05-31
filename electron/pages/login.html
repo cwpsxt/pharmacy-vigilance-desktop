@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' http://localhost:5001; navigate-to http://localhost:5001;">
+    <title>医院药学药物警戒与运营绩效可视化分析系统 - 登录</title>
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../libs/bootstrap/bootstrap-icons-local.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* 左侧品牌区域 */
+        .brand-section {
+            flex: 1;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px 50px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('../assets/bg.png') no-repeat center center;
+            background-size: cover;
+            opacity: 0.1;
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 1;
+            color: white;
+            max-width: 500px;
+        }
+
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 32px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .brand-logo img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .brand-title {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 16px;
+        }
+
+        .brand-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #60a5fa;
+        }
+
+        .brand-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+        }
+
+        /* 右侧登录区域 */
+        .login-section {
+            width: 440px;
+            min-width: 440px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .login-header {
+            margin-bottom: 24px;
+        }
+
+        .login-header h2 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            font-size: 15px;
+            color: #64748b;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .form-floating {
+            margin-bottom: 16px;
+        }
+
+        .form-floating .form-control {
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            padding: 14px 14px 14px 44px;
+            height: 50px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        .form-floating .form-control:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            background: white;
+        }
+
+        .form-floating label {
+            padding-left: 48px;
+            color: #94a3b8;
+        }
+
+        .form-floating .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 20px;
+            z-index: 10;
+            transition: color 0.3s ease;
+        }
+
+        .form-floating .form-control:focus ~ .input-icon {
+            color: #3b82f6;
+        }
+
+        .btn-login {
+            width: 100%;
+            height: 48px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+            border: none !important;
+            color: white !important;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-login:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-login:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-login .spinner-border {
+            width: 20px;
+            height: 20px;
+        }
+
+        .alert {
+            border-radius: 10px;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert i {
+            font-size: 18px;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 18px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .version-info {
+            margin-top: 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        /* 密码显示切换按钮 */
+        .password-toggle {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            z-index: 10;
+            padding: 4px;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            color: #3b82f6;
+        }
+
+        /* 记住我复选框 */
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .remember-me .form-check-input {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .remember-me .form-check-input:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .remember-me label {
+            color: #64748b;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* 动画 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .shake {
+            animation: shake 0.6s ease-in-out;
+        }
+
+        @keyframes fadeInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .brand-content {
+            animation: fadeInLeft 0.6s ease-out;
+        }
+
+        .login-card {
+            animation: fadeInRight 0.6s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 左侧品牌区域 -->
+        <div class="brand-section">
+            <div class="brand-content">
+                <div class="brand-logo">
+                    <img src="../assets/logo.png" alt="Logo">
+                </div>
+                <h1 class="brand-title">医院药学药物警戒与<br>运营绩效可视化分析系统</h1>
+                <p class="brand-subtitle">基于数据驱动的智能分析平台，助力医院药学管理决策，提升药物警戒工作效率</p>
+                
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                        <span>药品不良反应智能监测与分析</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                        <span>多维度数据统计与可视化报表</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"><i class="bi bi-robot"></i></div>
+                        <span>AI智能助手辅助决策支持</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
+                        <span>工作量绩效自动化统计</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="brand-footer">
+                <p>© 2025 医院药学部</p>
+            </div>
+        </div>
+
+        <!-- 右侧登录区域 -->
+        <div class="login-section">
+            <div class="login-header">
+                <h2>欢迎登录</h2>
+                <p>请输入您的账号信息</p>
+            </div>
+            
+            <div class="login-card" :class="{ 'shake': showError }">
+                <!-- 错误提示 -->
+                <div v-if="errorMessage" class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <span>{{ errorMessage }}</span>
+                </div>
+
+                <!-- 成功提示 -->
+                <div v-if="successMessage" class="alert alert-success" role="alert">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>{{ successMessage }}</span>
+                </div>
+
+                <form @submit.prevent="handleLogin">
+                    <!-- 用户名输入 -->
+                    <div class="form-floating position-relative">
+                        <i class="bi bi-person input-icon"></i>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="username" 
+                            placeholder="用户名"
+                            v-model="username"
+                            :disabled="isLoading"
+                            autocomplete="username"
+                            required
+                        >
+                        <label for="username">用户名</label>
+                    </div>
+
+                    <!-- 密码输入 -->
+                    <div class="form-floating position-relative">
+                        <i class="bi bi-lock input-icon"></i>
+                        <input 
+                            :type="showPassword ? 'text' : 'password'" 
+                            class="form-control" 
+                            id="password" 
+                            placeholder="密码"
+                            v-model="password"
+                            :disabled="isLoading"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <label for="password">密码</label>
+                        <button 
+                            type="button" 
+                            class="password-toggle"
+                            @click="showPassword = !showPassword"
+                            tabindex="-1"
+                        >
+                            <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                        </button>
+                    </div>
+
+                    <!-- 记住我 -->
+                    <div class="remember-me">
+                        <input 
+                            type="checkbox" 
+                            class="form-check-input" 
+                            id="rememberMe"
+                            v-model="rememberMe"
+                        >
+                        <label for="rememberMe">记住用户名</label>
+                    </div>
+
+                    <!-- 登录按钮 -->
+                    <button type="submit" class="btn btn-login" :disabled="isLoading || !isFormValid">
+                        <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status"></span>
+                        <span v-if="isLoading">登录中...</span>
+                        <template v-else>
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            <span>登 录</span>
+                        </template>
+                    </button>
+                </form>
+                
+               
+            </div>
+
+            <div class="version-info">
+                <p>版本 {{ appVersion }}</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../libs/vue/vue.global.prod.js"></script>
+    <script src="../libs/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const API_BASE = 'http://localhost:5001';
+
+        createApp({
+            setup() {
+                // 响应式数据
+                const username = ref('');
+                const password = ref('');
+                const rememberMe = ref(false);
+                const showPassword = ref(false);
+                const isLoading = ref(false);
+                const errorMessage = ref('');
+                const successMessage = ref('');
+                const showError = ref(false);
+                const appVersion = ref('1.0.0');
+
+                // 计算属性：表单是否有效
+                const isFormValid = computed(() => {
+                    return username.value.trim() !== '' && password.value !== '';
+                });
+
+                // 显示错误消息
+                const showErrorMessage = (message) => {
+                    errorMessage.value = message;
+                    successMessage.value = '';
+                    showError.value = true;
+                    setTimeout(() => {
+                        showError.value = false;
+                    }, 600);
+                };
+
+                // 显示成功消息
+                const showSuccessMessage = (message) => {
+                    successMessage.value = message;
+                    errorMessage.value = '';
+                };
+
+                // 处理登录
+                const handleLogin = async () => {
+                    if (!isFormValid.value) return;
+
+                    isLoading.value = true;
+                    errorMessage.value = '';
+                    successMessage.value = '';
+
+                    try {
+                        const response = await fetch(`${API_BASE}/api/auth/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                username: username.value.trim(),
+                                password: password.value
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            showSuccessMessage('登录成功，正在跳转...');
+                            
+                            // 保存记住用户名
+                            if (rememberMe.value) {
+                                localStorage.setItem('rememberedUsername', username.value.trim());
+                            } else {
+                                localStorage.removeItem('rememberedUsername');
+                            }
+
+                            // 保存用户信息和 token
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            localStorage.setItem('token', data.token);
+
+                            // 延迟跳转到管理页面（通过 URL 传递 token）
+                            setTimeout(() => {
+                                window.location.href = `layout.html?token=${encodeURIComponent(data.token)}`;
+                            }, 1000);
+                        } else {
+                            showErrorMessage(data.message || '登录失败，请重试');
+                        }
+                    } catch (error) {
+                        console.error('登录错误:', error);
+                        showErrorMessage('网络错误，请检查服务是否启动');
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                // 组件挂载时
+                onMounted(async () => {
+                    // 获取应用版本
+                    if (window.electronAPI) {
+                        try {
+                            appVersion.value = await window.electronAPI.getAppVersion();
+                        } catch (e) {
+                            console.log('非 Electron 环境');
+                        }
+                    }
+
+                    // 恢复记住的用户名
+                    const rememberedUsername = localStorage.getItem('rememberedUsername');
+                    if (rememberedUsername) {
+                        username.value = rememberedUsername;
+                        rememberMe.value = true;
+                    }
+
+                    // 自动聚焦
+                    setTimeout(() => {
+                        const input = document.getElementById(rememberedUsername ? 'password' : 'username');
+                        if (input) input.focus();
+                    }, 100);
+                });
+
+                return {
+                    username,
+                    password,
+                    rememberMe,
+                    showPassword,
+                    isLoading,
+                    errorMessage,
+                    successMessage,
+                    showError,
+                    appVersion,
+                    isFormValid,
+                    handleLogin
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="../../libs/bootstrap/bootstrap-icons-local.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <div id="app">
+        <div class="page-header">
+            <h1 class="page-title"><i class="bi bi-file-earmark-medical-fill"></i> 报告管理</h1>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-funnel"></i> 筛选条件</div>
+            </div>
+            <div class="card-body">
+                <div class="filter-bar">
+                    <div class="filter-item">
+                        <label>严重程度</label>
+                        <select v-model="filter.severity">
+                            <option value="">全部</option>
+                            <option value="严重">严重</option>
+                            <option value="一般">一般</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>怀疑/并用</label>
+                        <select v-model="filter.suspect_concurrent">
+                            <option value="">全部</option>
+                            <option value="怀疑">怀疑</option>
+                            <option value="并用">并用</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>开始月份</label>
+                        <input type="month" v-model="filter.startMonth">
+                    </div>
+                    <div class="filter-item">
+                        <label>结束月份</label>
+                        <input type="month" v-model="filter.endMonth">
+                    </div>
+                    <button class="btn btn-primary" @click="search"><i class="bi bi-search"></i> 查询</button>
+                    <button class="btn btn-secondary" @click="exportData"><i class="bi bi-download"></i> 导出</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="bi bi-table"></i> 报告列表</div>
+                <span style="color: var(--text-secondary); font-size: 13px;">共 {{ total }} 条记录</span>
+            </div>
+            <div class="card-body">
+                <div v-if="loading" class="loading"><div class="spinner"></div></div>
+                <div v-else-if="reports.length === 0" class="empty-state">
+                    <i class="bi bi-file-earmark-x"></i>
+                    <h3>暂无数据</h3>
+                    <p>请先导入数据或调整筛选条件</p>
+                </div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>报告编码</th>
+                                <th>通用名称</th>
+                                <th>生产厂家</th>
+                                <th>不良反应</th>
+                                <th>严重程度</th>
+                                <th>怀疑/并用</th>
+                                <th>报告人</th>
+                                <th>接收时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in reports" :key="item.id">
+                                <td>{{ item.report_code || '-' }}</td>
+                                <td>{{ item.generic_name || '-' }}</td>
+                                <td>{{ item.manufacturer || '-' }}</td>
+                                <td>{{ item.adverse_reaction_name || '-' }}</td>
+                                <td><span :class="['badge', item.severity === '严重' ? 'badge-danger' : 'badge-success']">{{ item.severity || '-' }}</span></td>
+                                <td>{{ item.suspect_concurrent || '-' }}</td>
+                                <td>{{ item.reporter_signature || '-' }}</td>
+                                <td>{{ formatTime(item.national_center_receive_time) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination">
+                        <button :disabled="page <= 1" @click="page--; loadReports()">上一页</button>
+                        <button class="active">{{ page }}</button>
+                        <button :disabled="page * pageSize >= total" @click="page++; loadReports()">下一页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../libs/vue/vue.global.prod.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const reports = ref([]);
+                const total = ref(0);
+                const page = ref(1);
+                const pageSize = ref(20);
+                const loading = ref(false);
+                const filter = ref({ severity: '', suspect_concurrent: '', startMonth: '', endMonth: '' });
+
+                const formatTime = (isoString) => {
+                    if (!isoString) return '-';
+                    const date = new Date(isoString);
+                    return date.toLocaleString('zh-CN', { 
+                        year: 'numeric', month: '2-digit', day: '2-digit'
+                    });
+                };
+
+                const loadReports = async () => {
+                    loading.value = true;
+                    try {
+                        const params = new URLSearchParams({
+                            page: page.value, per_page: pageSize.value, ...filter.value
+                        });
+                        const res = await apiGet(`/api/data/reports?${params}`);
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            reports.value = data.reports || [];
+                            total.value = data.total || 0;
+                        }
+                    } catch (e) { console.error(e); }
+                    finally { loading.value = false; }
+                };
+
+                const search = () => { page.value = 1; loadReports(); };
+
+                const exportData = () => {
+                    const params = new URLSearchParams(filter.value);
+                    window.open(`${API_BASE}/api/data/analysis/export?${params}&token=${getToken()}`, '_blank');
+                };
+
+                onMounted(loadReports);
+                return { reports, total, page, pageSize, loading, filter, formatTime, loadReports, search, exportData };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

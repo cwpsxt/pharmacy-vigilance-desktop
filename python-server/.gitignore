@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+build/
+*.spec.bak
+*.egg-info/
+.eggs/
+*.log
+.DS_Store
+data/*.sqlite3
+uploads/*
+!uploads/.gitkeep
+../tools/private_key.pem
+../tools/public_key.pem
