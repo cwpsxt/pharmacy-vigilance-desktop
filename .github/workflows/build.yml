@@ -29,6 +29,7 @@ jobs:
         shell: pwsh
         working-directory: python-server
         run: |
+          New-Item -ItemType Directory -Force -Path data, uploads | Out-Null
           pip install -r requirements.txt pyinstaller
           if (Test-Path dist) { Remove-Item -Recurse -Force dist }
           if (Test-Path build) { Remove-Item -Recurse -Force build }
@@ -78,6 +79,7 @@ jobs:
       - name: Build Python Backend
         working-directory: python-server
         run: |
+          mkdir -p data uploads
           pip install -r requirements.txt pyinstaller
           rm -rf dist build
           pyinstaller --clean server.spec
