@@ -48,11 +48,14 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="bi bi-table"></i> 报告列表</div>
-                <span style="color: var(--text-secondary); font-size: 13px;">共 {{ total }} 条记录</span>
-            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="bi bi-table"></i> 报告列表</div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="color: var(--text-secondary); font-size: 13px;">共 {{ total }} 条记录</span>
+                        <button class="btn btn-danger" :disabled="total === 0" @click="clearAllReports"><i class="bi bi-trash3"></i> 清空全部</button>
+                    </div>
+                </div>
             <div class="card-body">
                 <div v-if="loading" class="loading"><div class="spinner"></div></div>
                 <div v-else-if="reports.length === 0" class="empty-state">
@@ -69,10 +72,11 @@
                                 <th>生产厂家</th>
                                 <th>不良反应</th>
                                 <th>严重程度</th>
-                                <th>怀疑/并用</th>
-                                <th>报告人</th>
-                                <th>接收时间</th>
-                            </tr>
+                                    <th>怀疑/并用</th>
+                                    <th>报告人</th>
+                                    <th>接收时间</th>
+                                    <th>操作</th>
+                                </tr>
                         </thead>
                         <tbody>
                             <tr v-for="item in reports" :key="item.id">
@@ -81,10 +85,15 @@
                                 <td>{{ item.manufacturer || '-' }}</td>
                                 <td>{{ item.adverse_reaction_name || '-' }}</td>
                                 <td><span :class="['badge', item.severity === '严重' ? 'badge-danger' : 'badge-success']">{{ item.severity || '-' }}</span></td>
-                                <td>{{ item.suspect_concurrent || '-' }}</td>
-                                <td>{{ item.reporter_signature || '-' }}</td>
-                                <td>{{ formatTime(item.national_center_receive_time) }}</td>
-                            </tr>
+                                    <td>{{ item.suspect_concurrent || '-' }}</td>
+                                    <td>{{ item.reporter_signature || '-' }}</td>
+                                    <td>{{ formatTime(item.national_center_receive_time) }}</td>
+                                    <td>
+                                        <button class="icon-btn icon-btn-danger" title="删除" @click="deleteReport(item)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
                         </tbody>
                     </table>
                     <div class="pagination">
@@ -142,8 +151,40 @@
                     window.open(`${API_BASE}/api/data/analysis/export?${params}&token=${getToken()}`, '_blank');
                 };
 
+                const deleteReport = async (item) => {
+                    if (!confirm(`确定删除报告“${item.report_code || item.id}”吗？`)) return;
+                    try {
+                        const res = await apiPost('/api/data/reports/batch-delete', { ids: [item.id] });
+                        const data = res ? await res.json() : {};
+                        if (res && res.ok) {
+                            if (reports.value.length === 1 && page.value > 1) page.value -= 1;
+                            await loadReports();
+                        } else {
+                            alert(data.message || '删除失败');
+                        }
+                    } catch (e) {
+                        alert('删除失败');
+                    }
+                };
+
+                const clearAllReports = async () => {
+                    if (!confirm('确定清空全部报告和导入历史吗？')) return;
+                    try {
+                        const res = await apiPost('/api/data/reports/clear-all', {});
+                        const data = res ? await res.json() : {};
+                        if (res && res.ok) {
+                            page.value = 1;
+                            await loadReports();
+                        } else {
+                            alert(data.message || '清空失败');
+                        }
+                    } catch (e) {
+                        alert('清空失败');
+                    }
+                };
+
                 onMounted(loadReports);
-                return { reports, total, page, pageSize, loading, filter, formatTime, loadReports, search, exportData };
+                return { reports, total, page, pageSize, loading, filter, formatTime, loadReports, search, exportData, deleteReport, clearAllReports };
             }
         }).mount('#app');
     </script>

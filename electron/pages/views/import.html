@@ -55,16 +55,21 @@
                 </div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead>
-                            <tr><th>文件名</th><th>导入时间</th><th>记录数</th><th>状态</th></tr>
-                        </thead>
+                            <thead>
+                                <tr><th>文件名</th><th>导入时间</th><th>记录数</th><th>状态</th><th>操作</th></tr>
+                            </thead>
                         <tbody>
                             <tr v-for="item in history" :key="item.id">
                                 <td>{{ item.original_filename || item.filename }}</td>
                                 <td>{{ formatTime(item.created_at) }}</td>
                                 <td>{{ item.success_records }}</td>
-                                <td><span :class="['badge', item.status === 'success' ? 'badge-success' : 'badge-warning']">{{ item.status === 'success' ? '成功' : item.status }}</span></td>
-                            </tr>
+                                    <td><span :class="['badge', item.status === 'success' ? 'badge-success' : 'badge-warning']">{{ item.status === 'success' ? '成功' : item.status }}</span></td>
+                                    <td>
+                                        <button class="icon-btn icon-btn-danger" title="删除" @click="deleteHistory(item)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
                         </tbody>
                     </table>
                 </div>
@@ -114,7 +119,7 @@
                         if (res) {
                             const data = await res.json();
                             if (res.ok) {
-                                showToast('success', `导入成功！共导入 ${data.imported_count || 0} 条记录`);
+                                showToast('success', `导入成功！共导入 ${data.success_records || 0} 条记录`);
                                 loadHistory();
                             } else {
                                 showToast('error', data.message || '导入失败');
@@ -143,8 +148,24 @@
                     window.open(`${API_BASE}/api/data/download-template?token=${getToken()}`, '_blank');
                 };
 
+                const deleteHistory = async (item) => {
+                    if (!confirm(`确定删除“${item.original_filename || item.filename}”及其导入的数据吗？`)) return;
+                    try {
+                        const res = await apiDelete(`/api/data/import-history/${item.id}`);
+                        const data = res ? await res.json() : {};
+                        if (res && res.ok) {
+                            showToast('success', data.message || '删除成功');
+                            loadHistory();
+                        } else {
+                            showToast('error', data.message || '删除失败');
+                        }
+                    } catch (e) {
+                        showToast('error', '删除失败');
+                    }
+                };
+
                 onMounted(loadHistory);
-                return { history, isDragover, uploading, toast, formatTime, loadHistory, handleFile, handleDrop, downloadTemplate };
+                return { history, isDragover, uploading, toast, formatTime, loadHistory, handleFile, handleDrop, downloadTemplate, deleteHistory };
             }
         }).mount('#app');
     </script>

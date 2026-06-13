@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import re
 import uuid
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session, current_app
@@ -93,6 +94,149 @@ def get_month_range_str(start_month='', end_month=''):
     else:
         return "全部"
 
+IMPORT_REQUIRED_COLUMNS = [
+	'报告表编码',
+	'报告类型-新的',
+	'报告类型-严重程度',
+	'病历号/门诊号',
+	'怀疑/并用',
+	'生产厂家',
+	'不良反应名称',
+	'报告人职业',
+	'报告人签名',
+	'国家中心接收时间'
+]
+
+IMPORT_OPTIONAL_COLUMNS = ['通用名称']
+
+def normalize_excel_column_name(value):
+	if value is None or pd.isna(value):
+		return ''
+	return str(value).replace('\n', '').replace('\r', '').replace('\u3000', '').strip()
+
+def normalize_import_dataframe(df):
+	df = df.copy()
+	df.columns = [normalize_excel_column_name(col) for col in df.columns]
+	df = df.loc[:, [col for col in df.columns if col]]
+	df = df.dropna(how='all')
+	for column in IMPORT_OPTIONAL_COLUMNS:
+		if column not in df.columns:
+			df[column] = ''
+	missing = [column for column in IMPORT_REQUIRED_COLUMNS if column not in df.columns]
+	if missing:
+		raise ValueError(f"缺少必要列: {', '.join(missing)}")
+	return df
+
+def read_import_excel(filepath):
+	"""读取中心导出或模板Excel，自动识别表头行"""
+	raw_sheets = pd.read_excel(filepath, sheet_name=None, header=None)
+	for raw_df in raw_sheets.values():
+		max_scan_rows = min(len(raw_df), 20)
+		for row_index in range(max_scan_rows):
+			headers = [normalize_excel_column_name(value) for value in raw_df.iloc[row_index].tolist()]
+			if all(column in headers for column in IMPORT_REQUIRED_COLUMNS):
+				data = raw_df.iloc[row_index + 1:].copy()
+				data.columns = headers
+				return normalize_import_dataframe(data)
+	return normalize_import_dataframe(pd.read_excel(filepath))
+
+def clean_cell(row, column, default=''):
+	value = row.get(column, default)
+	if pd.isna(value):
+		return default
+	return str(value).strip()
+
+def get_deduplicated_records(start_month='', end_month=''):
+	query = AdverseReactionReport.query
+	query = apply_month_filter(query, start_month, end_month)
+	filtered_query = query.filter(AdverseReactionReport.suspect_concurrent == '怀疑')
+	subquery = filtered_query.with_entities(
+		AdverseReactionReport.report_code,
+		db.func.min(AdverseReactionReport.id).label('min_id')
+	).group_by(AdverseReactionReport.report_code).subquery()
+	return db.session.query(AdverseReactionReport).join(
+		subquery, AdverseReactionReport.id == subquery.c.min_id
+	)
+
+def split_reaction_names(value):
+	if not value or pd.isna(value):
+		return ['未知不良反应']
+	names = []
+	for part in re.split(r'[；;、,，]+', str(value)):
+		name = re.sub(r'[（(]\s*(一般|严重)\s*[）)]', '', part).strip()
+		if name:
+			names.append(name)
+	return names or ['未知不良反应']
+
+def build_reaction_summary(records):
+	reaction_stats = {}
+	for record in records:
+		for reaction_name in split_reaction_names(record.adverse_reaction_name):
+			if reaction_name not in reaction_stats:
+				reaction_stats[reaction_name] = {'reaction_name': reaction_name, '严重': 0, '一般': 0, 'total': 0}
+			if record.severity == '严重':
+				reaction_stats[reaction_name]['严重'] += 1
+			else:
+				reaction_stats[reaction_name]['一般'] += 1
+			reaction_stats[reaction_name]['total'] += 1
+	reaction_list = list(reaction_stats.values())
+	reaction_list.sort(key=lambda x: x['total'], reverse=True)
+	return reaction_list
+
+def build_reaction_summary_excel_data(records):
+	reaction_list = build_reaction_summary(records)
+	excel_data = []
+	for i, item in enumerate(reaction_list, 1):
+		excel_data.append({
+			'序号': i,
+			'不良反应名称': item['reaction_name'],
+			'严重': item['严重'],
+			'一般': item['一般'],
+			'合计': item['total']
+		})
+	if excel_data:
+		total_severe = sum(item['严重'] for item in excel_data)
+		total_general = sum(item['一般'] for item in excel_data)
+		excel_data.append({
+			'序号': '',
+			'不良反应名称': '合计',
+			'严重': total_severe,
+			'一般': total_general,
+			'合计': total_severe + total_general
+		})
+	return excel_data
+
+def style_template_header(worksheet):
+	from openpyxl.styles import Alignment, Font, PatternFill
+	header_fill = PatternFill("solid", fgColor="EAF3FF")
+	for row in worksheet.iter_rows(min_row=1, max_row=2):
+		for cell in row:
+			cell.alignment = Alignment(horizontal="center", vertical="center")
+			cell.font = Font(bold=True)
+			cell.fill = header_fill
+	worksheet.freeze_panes = "A3"
+
+def apply_report_details_template(worksheet):
+	for column, title in [('A', '科室'), ('B', '职业'), ('C', '姓名'), ('D', '总计')]:
+		worksheet.merge_cells(f'{column}1:{column}2')
+		worksheet[f'{column}1'] = title
+	worksheet.merge_cells('E1:H1')
+	worksheet['E1'] = '报告类型'
+	for cell, title in [('E2', '一般'), ('F2', '严重'), ('G2', '新的一般'), ('H2', '新的严重')]:
+		worksheet[cell] = title
+	style_template_header(worksheet)
+
+def apply_reward_template(worksheet):
+	for column, title in [('A', '科室'), ('B', '职业'), ('C', '姓名'), ('L', '个人奖励合计/元')]:
+		worksheet.merge_cells(f'{column}1:{column}2')
+		worksheet[f'{column}1'] = title
+	for start, end, title in [('D', 'E', '一般'), ('F', 'G', '严重'), ('H', 'I', '新的一般'), ('J', 'K', '新的严重')]:
+		worksheet.merge_cells(f'{start}1:{end}1')
+		worksheet[f'{start}1'] = title
+	for cell, title in [('D2', '数量'), ('E2', '奖励/元'), ('F2', '数量'), ('G2', '奖励/元'), ('H2', '数量'), ('I2', '奖励/元'), ('J2', '数量'), ('K2', '奖励/元')]:
+		worksheet[cell] = title
+	style_template_header(worksheet)
+
 def parse_excel_data(df, batch_id):
 	"""解析Excel数据并转换为数据库记录"""
 	records = []
@@ -115,21 +259,26 @@ def parse_excel_data(df, batch_id):
 	
 	for index, row in df.iterrows():
 		try:
+			report_code = clean_cell(row, '报告表编码')
+			if not report_code:
+				continue
 			# 转换时间格式
-			receive_time = pd.to_datetime(row['国家中心接收时间'])
+			receive_time = pd.to_datetime(row['国家中心接收时间'], errors='coerce')
+			if pd.isna(receive_time):
+				raise ValueError("国家中心接收时间格式不正确")
 			
 			# 创建记录对象
 			record = AdverseReactionReport(
-				report_code=str(row['报告表编码']),
-				report_type_new=str(row['报告类型-新的']) if pd.notna(row['报告类型-新的']) else None,
-				severity=str(row['报告类型-严重程度']),
-				medical_record_no=str(row['病历号/门诊号']),
-				suspect_concurrent=str(row['怀疑/并用']),
-				generic_name=str(row.get('通用名称', '')),
-				manufacturer=str(row['生产厂家']),
-				adverse_reaction_name=str(row['不良反应名称']),
-				reporter_profession=str(row['报告人职业']),
-				reporter_signature=str(row['报告人签名']),
+				report_code=report_code,
+				report_type_new=clean_cell(row, '报告类型-新的') or None,
+				severity=clean_cell(row, '报告类型-严重程度'),
+				medical_record_no=clean_cell(row, '病历号/门诊号'),
+				suspect_concurrent=clean_cell(row, '怀疑/并用'),
+				generic_name=clean_cell(row, '通用名称'),
+				manufacturer=clean_cell(row, '生产厂家'),
+				adverse_reaction_name=clean_cell(row, '不良反应名称'),
+				reporter_profession=clean_cell(row, '报告人职业'),
+				reporter_signature=clean_cell(row, '报告人签名'),
 				national_center_receive_time=receive_time,
 				import_batch_id=batch_id
 			)
@@ -187,7 +336,7 @@ def upload_file():
 		
 		try:
 			# 读取Excel文件
-			df = pd.read_excel(filepath)
+			df = read_import_excel(filepath)
 			total_records = len(df)
 			
 			# 更新总记录数
@@ -245,6 +394,36 @@ def get_import_history():
 		return jsonify([record.to_dict() for record in history_records])
 	except Exception as e:
 		return jsonify({"message": f"获取导入历史失败: {str(e)}"}), 500
+
+@data_bp.route("/import-history/<int:history_id>", methods=["DELETE"])
+@require_auth
+def delete_import_history(history_id):
+	"""删除单次导入及其对应报告"""
+	try:
+		history = db.session.get(ImportHistory, history_id)
+		if not history:
+			return jsonify({"message": "导入记录不存在"}), 404
+
+		deleted_count = AdverseReactionReport.query.filter_by(
+			import_batch_id=history.batch_id
+		).delete(synchronize_session=False)
+
+		upload_path = current_app.config.get("UPLOAD_FOLDER")
+		if upload_path and history.filename:
+			filepath = os.path.join(upload_path, history.filename)
+			if os.path.exists(filepath):
+				os.remove(filepath)
+
+		db.session.delete(history)
+		db.session.commit()
+
+		return jsonify({
+			"message": f"已删除导入记录及 {deleted_count} 条报告",
+			"count": deleted_count
+		})
+	except Exception as e:
+		db.session.rollback()
+		return jsonify({"message": f"删除导入记录失败: {str(e)}"}), 500
 
 @data_bp.route("/download-template", methods=["GET"])
 @require_auth
@@ -396,8 +575,12 @@ def get_reports():
 		# 查询参数
 		search = request.args.get('search', '', type=str)
 		severity = request.args.get('severity', '', type=str)
+		suspect_concurrent = request.args.get('suspect_concurrent', '', type=str)
+		start_month = request.args.get('startMonth', '', type=str)
+		end_month = request.args.get('endMonth', '', type=str)
 		
 		query = AdverseReactionReport.query
+		query = apply_month_filter(query, start_month, end_month)
 		
 		# 搜索过滤
 		if search:
@@ -413,6 +596,8 @@ def get_reports():
 		# 严重程度过滤
 		if severity:
 			query = query.filter_by(severity=severity)
+		if suspect_concurrent:
+			query = query.filter_by(suspect_concurrent=suspect_concurrent)
 		
 		# 分页
 		pagination = query.order_by(AdverseReactionReport.created_at.desc()).paginate(
@@ -1290,24 +1475,8 @@ def get_report_details():
 		start_month = request.args.get('startMonth', '')
 		end_month = request.args.get('endMonth', '')
 
-		query = AdverseReactionReport.query
-		query = apply_month_filter(query, start_month, end_month)
-		
-		# 先过滤掉"并用"的数据，只保留"怀疑"的数据
-		filtered_query = query.filter(AdverseReactionReport.suspect_concurrent == '怀疑')
-		
-		# 然后按报告编码去重（取每个报告编码的第一条记录）
-		subquery = filtered_query.with_entities(
-			AdverseReactionReport.report_code,
-			db.func.min(AdverseReactionReport.id).label('min_id')
-		).group_by(AdverseReactionReport.report_code).subquery()
-		
-		deduplicated_query = db.session.query(AdverseReactionReport).join(
-			subquery, AdverseReactionReport.id == subquery.c.min_id
-		)
-		
 		# 获取所有去重后的记录
-		all_records = deduplicated_query.all()
+		all_records = get_deduplicated_records(start_month, end_month).all()
 		
 		# 按报告人统计
 		reporter_stats = {}
@@ -1610,10 +1779,11 @@ def export_report_details():
 		df = pd.DataFrame(final_data)
 		
 		with pd.ExcelWriter(output, engine='openpyxl') as writer:
-			df.to_excel(writer, sheet_name='上报明细', index=False)
+			df.to_excel(writer, sheet_name='上报明细', index=False, header=False, startrow=2)
 			
 			# 获取工作表进行格式化
 			worksheet = writer.sheets['上报明细']
+			apply_report_details_template(worksheet)
 			
 			# 设置列宽
 			worksheet.column_dimensions['A'].width = 12  # 科室
@@ -2169,10 +2339,11 @@ def export_reward_calculation():
 		df = pd.DataFrame(final_data)
 		
 		with pd.ExcelWriter(output, engine='openpyxl') as writer:
-			df.to_excel(writer, sheet_name='奖励计算', index=False)
+			df.to_excel(writer, sheet_name='奖励计算', index=False, header=False, startrow=2)
 			
 			# 获取工作表进行格式化
 			worksheet = writer.sheets['奖励计算']
+			apply_reward_template(worksheet)
 			
 			# 设置列宽
 			worksheet.column_dimensions['A'].width = 12  # 科室
@@ -2332,7 +2503,10 @@ def get_drug_summary():
 		drug_summary = list(drug_stats.values())
 		drug_summary.sort(key=lambda x: x['total'], reverse=True)
 		
-		return jsonify(drug_summary)
+		return jsonify({
+			'drug_summary': drug_summary,
+			'reaction_summary': build_reaction_summary(all_records)
+		})
 		
 	except Exception as e:
 		return jsonify({"message": f"获取药品汇总数据失败: {str(e)}"}), 500
@@ -2350,24 +2524,8 @@ def export_drug_summary():
 		start_month = request.args.get('startMonth', '')
 		end_month = request.args.get('endMonth', '')
 
-		query = AdverseReactionReport.query
-		query = apply_month_filter(query, start_month, end_month)
-		
-		# 先过滤掉"并用"的数据，只保留"怀疑"的数据
-		filtered_query = query.filter(AdverseReactionReport.suspect_concurrent == '怀疑')
-		
-		# 然后按报告编码去重（取每个报告编码的第一条记录）
-		subquery = filtered_query.with_entities(
-			AdverseReactionReport.report_code,
-			db.func.min(AdverseReactionReport.id).label('min_id')
-		).group_by(AdverseReactionReport.report_code).subquery()
-		
-		deduplicated_query = db.session.query(AdverseReactionReport).join(
-			subquery, AdverseReactionReport.id == subquery.c.min_id
-		)
-		
 		# 获取所有去重后的记录
-		all_records = deduplicated_query.all()
+		all_records = get_deduplicated_records(start_month, end_month).all()
 		
 		# 按药品统计
 		drug_stats = {}
@@ -2433,6 +2591,8 @@ def export_drug_summary():
 			# 创建数据表
 			df = pd.DataFrame(excel_data)
 			df.to_excel(writer, sheet_name='发生不良反应的药品汇总', index=False)
+			df_reaction = pd.DataFrame(build_reaction_summary_excel_data(all_records))
+			df_reaction.to_excel(writer, sheet_name='不良反应汇总分析', index=False)
 			
 			# 创建图表 - 使用matplotlib
 			try:
@@ -2985,7 +3145,9 @@ def export_all_tabs():
 				})
 				
 				df_report_details = pd.DataFrame(final_data)
-				df_report_details.to_excel(writer, sheet_name='上报明细-全院', index=False)
+				df_report_details.to_excel(writer, sheet_name='上报明细-全院', index=False, header=False, startrow=2)
+				worksheet_detail = writer.sheets['上报明细-全院']
+				apply_report_details_template(worksheet_detail)
 				
 				# 添加上报明细图表 - 使用matplotlib
 				try:
@@ -2997,7 +3159,6 @@ def export_all_tabs():
 					plt.rcParams['axes.unicode_minus'] = False
 					
 					from openpyxl.drawing.image import Image
-					worksheet_detail = writer.sheets['上报明细-全院']
 					
 					# 1. 科室上报数量TOP10柱状图
 					dept_totals = [(dept, data['total']) for dept, data in department_subtotals.items()]
@@ -3240,7 +3401,9 @@ def export_all_tabs():
 				})
 				
 				df_reward = pd.DataFrame(reward_final_data)
-				df_reward.to_excel(writer, sheet_name='奖励计算-药学', index=False)
+				df_reward.to_excel(writer, sheet_name='奖励计算-药学', index=False, header=False, startrow=2)
+				worksheet_reward = writer.sheets['奖励计算-药学']
+				apply_reward_template(worksheet_reward)
 				
 				# 添加奖励计算图表 - 使用matplotlib
 				try:
@@ -3252,7 +3415,6 @@ def export_all_tabs():
 					plt.rcParams['axes.unicode_minus'] = False
 					
 					from openpyxl.drawing.image import Image
-					worksheet_reward = writer.sheets['奖励计算-药学']
 					
 					# 准备个人奖励数据
 					person_rewards = [(row['姓名'], row['个人奖励合计/元']) 
@@ -3369,10 +3531,12 @@ def export_all_tabs():
 						'一般': total_general,
 						'合计': total_severe + total_general
 					})
-				
+
 				df_drug_summary = pd.DataFrame(drug_excel_data)
 				df_drug_summary.to_excel(writer, sheet_name='发生不良反应的药品汇总', index=False)
-				
+				df_reaction_summary = pd.DataFrame(build_reaction_summary_excel_data(all_records))
+				df_reaction_summary.to_excel(writer, sheet_name='不良反应汇总分析', index=False)
+
 				# 添加药品汇总图表 - 使用matplotlib
 				try:
 					import matplotlib

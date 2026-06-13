@@ -166,6 +166,30 @@ body {
     color: white;
 }
 
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.icon-btn {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: #f3f4f6;
+    color: var(--text-secondary);
+}
+
+.icon-btn:hover { background: #e5e7eb; }
+.icon-btn-danger { background: rgba(255, 77, 79, 0.1); color: var(--danger); }
+.icon-btn-danger:hover { background: rgba(255, 77, 79, 0.18); }
+
 /* 表格 */
 .table-container { overflow-x: auto; }
 

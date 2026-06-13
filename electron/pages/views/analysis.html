@@ -374,19 +374,22 @@
                     
                     <!-- 表格视图 -->
                     <div v-if="viewMode === 'table'" class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>科室</th>
-                                    <th>职业</th>
-                                    <th>姓名</th>
-                                    <th>总计</th>
-                                    <th>一般</th>
-                                    <th>严重</th>
-                                    <th>新的一般</th>
-                                    <th>新的严重</th>
-                                </tr>
-                            </thead>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">科室</th>
+                                        <th rowspan="2">职业</th>
+                                        <th rowspan="2">姓名</th>
+                                        <th rowspan="2">总计</th>
+                                        <th colspan="4" style="text-align: center;">报告类型</th>
+                                    </tr>
+                                    <tr>
+                                        <th>一般</th>
+                                        <th>严重</th>
+                                        <th>新的一般</th>
+                                        <th>新的严重</th>
+                                    </tr>
+                                </thead>
                             <tbody>
                                 <tr v-for="(item, idx) in reportDetailsWithSummary" :key="idx" 
                                     :style="{
@@ -458,23 +461,29 @@
                     
                     <!-- 表格视图 -->
                     <div v-if="viewMode === 'table'" class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>科室</th>
-                                    <th>职业</th>
-                                    <th>姓名</th>
-                                    <th>一般</th>
-                                    <th>奖励/元</th>
-                                    <th>严重</th>
-                                    <th>奖励/元</th>
-                                    <th>新的一般</th>
-                                    <th>奖励/元</th>
-                                    <th>新的严重</th>
-                                    <th>奖励/元</th>
-                                    <th>个人奖励合计</th>
-                                </tr>
-                            </thead>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">科室</th>
+                                        <th rowspan="2">职业</th>
+                                        <th rowspan="2">姓名</th>
+                                        <th colspan="2" style="text-align: center;">一般</th>
+                                        <th colspan="2" style="text-align: center;">严重</th>
+                                        <th colspan="2" style="text-align: center;">新的一般</th>
+                                        <th colspan="2" style="text-align: center;">新的严重</th>
+                                        <th rowspan="2">个人奖励合计</th>
+                                    </tr>
+                                    <tr>
+                                        <th>数量</th>
+                                        <th>奖励/元</th>
+                                        <th>数量</th>
+                                        <th>奖励/元</th>
+                                        <th>数量</th>
+                                        <th>奖励/元</th>
+                                        <th>数量</th>
+                                        <th>奖励/元</th>
+                                    </tr>
+                                </thead>
                             <tbody>
                                 <tr v-for="(item, idx) in rewardData.reward_details" :key="idx"
                                     :class="{ subtotal: item.isSubtotal, total: item.isTotal }">
@@ -542,10 +551,11 @@
                         <button class="btn btn-success" @click="exportTab('drug-summary')"><i class="bi bi-download"></i> 导出Excel</button>
                     </div>
 
-                    <!-- 表格视图 -->
-                    <div v-if="viewMode === 'table'">
-                        <div class="table-container">
-                            <table class="data-table">
+                        <!-- 表格视图 -->
+                        <div v-if="viewMode === 'table'">
+                            <div style="font-weight: 600; color: #1f2937; margin: 4px 0 10px;">发生不良反应的药品汇总</div>
+                            <div class="table-container">
+                                <table class="data-table">
                                 <thead>
                                     <tr>
                                         <th>序号</th>
@@ -567,9 +577,32 @@
                                         <td><strong style="color: #e6a23c;">{{ item.total || 0 }}</strong></td>
                                     </tr>
                                 </tbody>
-                            </table>
+                                </table>
+                            </div>
+                            <div style="font-weight: 600; color: #1f2937; margin: 20px 0 10px;">不良反应汇总分析</div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>序号</th>
+                                            <th>不良反应名称</th>
+                                            <th>严重</th>
+                                            <th>一般</th>
+                                            <th>合计</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(item, idx) in drugSummaryData.reaction_summary" :key="idx">
+                                            <td>{{ idx + 1 }}</td>
+                                            <td>{{ item.reaction_name }}</td>
+                                            <td style="color: #ff4d4f;">{{ item['严重'] || 0 }}</td>
+                                            <td>{{ item['一般'] || 0 }}</td>
+                                            <td><strong style="color: #e6a23c;">{{ item.total || 0 }}</strong></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
 
                     <!-- 图表视图 -->
                     <div v-else>
@@ -621,7 +654,7 @@
                 const statisticsData = ref({});
                 const reportDetailsData = ref({ report_details: [] });
                 const rewardData = ref({ reward_details: [] });
-                const drugSummaryData = ref({ drug_summary: [] });
+                    const drugSummaryData = ref({ drug_summary: [], reaction_summary: [] });
                 
                 // 图表实例
                 let charts = {};
@@ -742,11 +775,14 @@
                         if (statsRes && statsRes.ok) statisticsData.value = await statsRes.json();
                         if (detailsRes && detailsRes.ok) reportDetailsData.value = await detailsRes.json();
                         if (rewardRes && rewardRes.ok) rewardData.value = await rewardRes.json();
-                        if (drugRes && drugRes.ok) {
-                            const drugData = await drugRes.json();
-                            // 后端直接返回数组，需要包装成对象
-                            drugSummaryData.value = { drug_summary: Array.isArray(drugData) ? drugData : (drugData.drug_summary || []) };
-                        }
+                            if (drugRes && drugRes.ok) {
+                                const drugData = await drugRes.json();
+                                // 后端直接返回数组，需要包装成对象
+                                drugSummaryData.value = {
+                                    drug_summary: Array.isArray(drugData) ? drugData : (drugData.drug_summary || []),
+                                    reaction_summary: Array.isArray(drugData) ? [] : (drugData.reaction_summary || [])
+                                };
+                            }
                         
                         if (viewMode.value === 'chart') {
                             nextTick(() => renderCharts());
