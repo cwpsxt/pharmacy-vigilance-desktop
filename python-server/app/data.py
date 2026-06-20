@@ -206,6 +206,70 @@ def build_reaction_summary_excel_data(records):
 		})
 	return excel_data
 
+def add_reaction_summary_charts(writer, records, sheet_name='不良反应汇总分析'):
+	reaction_list = build_reaction_summary(records)
+	if not reaction_list:
+		return
+	try:
+		from io import BytesIO
+		import matplotlib
+		matplotlib.use('Agg')
+		import matplotlib.pyplot as plt
+		import numpy as np
+		from openpyxl.drawing.image import Image
+
+		plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+		plt.rcParams['axes.unicode_minus'] = False
+
+		worksheet = writer.sheets[sheet_name]
+		top_reactions = reaction_list[:10]
+		reaction_names = [item['reaction_name'][:15] + '..' if len(item['reaction_name']) > 15 else item['reaction_name'] for item in top_reactions]
+		general_counts = [item['一般'] for item in top_reactions]
+		severe_counts = [item['严重'] for item in top_reactions]
+
+		fig1, ax1 = plt.subplots(figsize=(12, 7))
+		x = np.arange(len(reaction_names))
+		width = 0.35
+		ax1.barh(x - width / 2, general_counts[::-1], width, label='一般', color='#67C23A')
+		ax1.barh(x + width / 2, severe_counts[::-1], width, label='严重', color='#F56C6C')
+		ax1.set_yticks(x)
+		ax1.set_yticklabels(reaction_names[::-1], fontsize=9)
+		ax1.set_title('不良反应汇总TOP10', fontsize=14, fontweight='bold')
+		ax1.set_xlabel('数量')
+		ax1.legend()
+		plt.tight_layout()
+		bar_image = BytesIO()
+		plt.savefig(bar_image, format='png', dpi=150, bbox_inches='tight')
+		bar_image.seek(0)
+		plt.close(fig1)
+
+		img1 = Image(bar_image)
+		img1.width = 600
+		img1.height = 350
+		worksheet.add_image(img1, 'G2')
+
+		labels = [f"{item['reaction_name']}: {item['total']}例" for item in top_reactions]
+		values = [item['total'] for item in top_reactions]
+		other_total = sum(item['total'] for item in reaction_list[10:])
+		if other_total > 0:
+			labels.append(f'其他: {other_total}例')
+			values.append(other_total)
+
+		fig2, ax2 = plt.subplots(figsize=(12, 9))
+		colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#606266', '#E91E63', '#9C27B0', '#3F51B5', '#00BCD4', '#CCCCCC']
+		draw_pie_with_labels(ax2, values, labels, colors, '不良反应分布')
+		pie_image = BytesIO()
+		plt.savefig(pie_image, format='png', dpi=150, bbox_inches='tight')
+		pie_image.seek(0)
+		plt.close(fig2)
+
+		img2 = Image(pie_image)
+		img2.width = 600
+		img2.height = 450
+		worksheet.add_image(img2, 'G24')
+	except Exception as chart_error:
+		print(f"生成不良反应汇总图表时出错: {chart_error}")
+
 def style_template_header(worksheet):
 	from openpyxl.styles import Alignment, Font, PatternFill
 	header_fill = PatternFill("solid", fgColor="EAF3FF")
@@ -2593,6 +2657,7 @@ def export_drug_summary():
 			df.to_excel(writer, sheet_name='发生不良反应的药品汇总', index=False)
 			df_reaction = pd.DataFrame(build_reaction_summary_excel_data(all_records))
 			df_reaction.to_excel(writer, sheet_name='不良反应汇总分析', index=False)
+			add_reaction_summary_charts(writer, all_records)
 			
 			# 创建图表 - 使用matplotlib
 			try:
@@ -3536,6 +3601,7 @@ def export_all_tabs():
 				df_drug_summary.to_excel(writer, sheet_name='发生不良反应的药品汇总', index=False)
 				df_reaction_summary = pd.DataFrame(build_reaction_summary_excel_data(all_records))
 				df_reaction_summary.to_excel(writer, sheet_name='不良反应汇总分析', index=False)
+				add_reaction_summary_charts(writer, all_records)
 
 				# 添加药品汇总图表 - 使用matplotlib
 				try:

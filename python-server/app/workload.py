@@ -543,6 +543,7 @@ def get_all_workload_data():
 
 
 @workload_bp.route("/data/<data_type>", methods=["DELETE"])
+@require_auth
 def delete_all_workload_data(data_type):
 	"""删除指定类型的所有工作量数据"""
 	try:
@@ -563,6 +564,7 @@ def delete_all_workload_data(data_type):
 
 
 @workload_bp.route("/delete/<data_type>/<int:id>", methods=["DELETE"])
+@require_auth
 def delete_workload_data(data_type, id):
 	"""删除单条工作量数据"""
 	try:

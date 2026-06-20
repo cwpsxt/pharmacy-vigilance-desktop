@@ -14,7 +14,7 @@ os.environ["SKIP_LICENSE"] = "1"
 
 import app as app_module
 from app.db import db
-from app.models import AdverseReactionReport
+from app.models import AdverseReactionReport, WorkloadIncome, WorkloadSampleMeasurement
 
 
 class DataWorkflowTest(unittest.TestCase):
@@ -93,10 +93,11 @@ class DataWorkflowTest(unittest.TestCase):
         self.assertEqual(upload.status_code, 200)
         response = self.client.get("/api/data/analysis/export-drug-summary", headers=self.headers)
         self.assertEqual(response.status_code, 200)
-        wb = load_workbook(BytesIO(response.data), read_only=True)
+        wb = load_workbook(BytesIO(response.data), read_only=False)
         self.assertIn("不良反应汇总分析", wb.sheetnames)
         ws = wb["不良反应汇总分析"]
         self.assertEqual([cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))[:5]], ["序号", "不良反应名称", "严重", "一般", "合计"])
+        self.assertGreaterEqual(len(ws._images), 1)
 
     def test_report_details_and_reward_exports_use_template_headers(self):
         headers = ["报告表编码", "报告类型-新的", "报告类型-严重程度", "病历号/门诊号", "怀疑/并用", "通用名称", "生产厂家", "不良反应名称", "报告人职业", "报告人签名", "国家中心接收时间"]
@@ -120,11 +121,49 @@ class DataWorkflowTest(unittest.TestCase):
     def test_desktop_pages_expose_delete_actions_and_correct_import_count(self):
         reports_html = (ROOT.parent / "electron/pages/views/reports.html").read_text(encoding="utf-8")
         import_html = (ROOT.parent / "electron/pages/views/import.html").read_text(encoding="utf-8")
+        analysis_html = (ROOT.parent / "electron/pages/views/analysis.html").read_text(encoding="utf-8")
+        workload_html = (ROOT.parent / "electron/pages/views/workload.html").read_text(encoding="utf-8")
         self.assertIn("/api/data/reports/batch-delete", reports_html)
         self.assertIn("/api/data/reports/clear-all", reports_html)
         self.assertIn("/api/data/import-history/${item.id}", import_html)
         self.assertIn("data.success_records", import_html)
         self.assertNotIn("data.imported_count", import_html)
+        self.assertIn("/api/data/analysis/drug-summary-charts", analysis_html)
+        self.assertIn("reactionBarChart", analysis_html)
+        self.assertIn("reactionPieChart", analysis_html)
+        self.assertIn("/api/workload/delete/${type}/${item.id}", workload_html)
+        self.assertIn("/api/workload/data/${activeTab.value}", workload_html)
+
+    def test_workload_delete_endpoints_remove_rows(self):
+        with self.app.app_context():
+            sample = WorkloadSampleMeasurement(
+                project_name="万古霉素",
+                measurement_content="样品",
+                month_1=3,
+                year=2026,
+            )
+            income = WorkloadIncome(
+                project_name="万古霉素",
+                measurement_content="收入",
+                month_1=120.5,
+                year=2026,
+            )
+            db.session.add_all([sample, income])
+            db.session.commit()
+            sample_id = sample.id
+
+        one_response = self.client.delete(f"/api/workload/delete/sample/{sample_id}", headers=self.headers)
+        self.assertEqual(one_response.status_code, 200)
+        self.assertTrue(one_response.get_json()["success"])
+        with self.app.app_context():
+            self.assertEqual(WorkloadSampleMeasurement.query.count(), 0)
+            self.assertEqual(WorkloadIncome.query.count(), 1)
+
+        all_response = self.client.delete("/api/workload/data/income", headers=self.headers)
+        self.assertEqual(all_response.status_code, 200)
+        self.assertTrue(all_response.get_json()["success"])
+        with self.app.app_context():
+            self.assertEqual(WorkloadIncome.query.count(), 0)
 
 
 if __name__ == "__main__":

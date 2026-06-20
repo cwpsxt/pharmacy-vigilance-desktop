@@ -606,20 +606,28 @@
 
                     <!-- 图表视图 -->
                     <div v-else>
-                        <div style="margin-bottom: 12px; display: flex; justify-content: center; gap: 10px;">
+                        <div style="margin-bottom: 12px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
                             <button class="btn" :class="{ 'btn-primary': drugChartType === 'bar', 'btn-outline': drugChartType !== 'bar' }" @click="switchDrugChart('bar')">
-                                <i class="bi bi-bar-chart-fill"></i> 柱状图
+                                <i class="bi bi-bar-chart-fill"></i> 药品柱状图
                             </button>
                             <button class="btn" :class="{ 'btn-primary': drugChartType === 'pie', 'btn-outline': drugChartType !== 'pie' }" @click="switchDrugChart('pie')">
-                                <i class="bi bi-pie-chart-fill"></i> 饼状图
+                                <i class="bi bi-pie-chart-fill"></i> 药品饼状图
+                            </button>
+                            <button class="btn" :class="{ 'btn-primary': drugChartType === 'reaction-bar', 'btn-outline': drugChartType !== 'reaction-bar' }" @click="switchDrugChart('reaction-bar')">
+                                <i class="bi bi-bar-chart-fill"></i> 反应柱状图
+                            </button>
+                            <button class="btn" :class="{ 'btn-primary': drugChartType === 'reaction-pie', 'btn-outline': drugChartType !== 'reaction-pie' }" @click="switchDrugChart('reaction-pie')">
+                                <i class="bi bi-pie-chart-fill"></i> 反应饼状图
                             </button>
                         </div>
                         <div class="chart-container" style="height: 450px;">
                             <div class="chart-actions">
-                                <button class="chart-action-btn" @click="downloadChart(drugChartType === 'bar' ? 'drugBarChart' : 'drugPieChart')"><i class="bi bi-download"></i> 下载</button>
+                                <button class="chart-action-btn" @click="downloadChart(getDrugChartId())"><i class="bi bi-download"></i> 下载</button>
                             </div>
                             <div v-show="drugChartType === 'bar'" id="drugBarChart" style="width: 100%; height: 100%;"></div>
                             <div v-show="drugChartType === 'pie'" id="drugPieChart" style="width: 100%; height: 100%;"></div>
+                            <div v-show="drugChartType === 'reaction-bar'" id="reactionBarChart" style="width: 100%; height: 100%;"></div>
+                            <div v-show="drugChartType === 'reaction-pie'" id="reactionPieChart" style="width: 100%; height: 100%;"></div>
                         </div>
                     </div>
                 </div>
@@ -654,7 +662,8 @@
                 const statisticsData = ref({});
                 const reportDetailsData = ref({ report_details: [] });
                 const rewardData = ref({ reward_details: [] });
-                    const drugSummaryData = ref({ drug_summary: [], reaction_summary: [] });
+                const drugSummaryData = ref({ drug_summary: [], reaction_summary: [] });
+                const drugSummaryChartData = ref({ bar_chart: [], pie_chart: [] });
                 
                 // 图表实例
                 let charts = {};
@@ -761,13 +770,14 @@
                     loading.value = true;
                     const params = new URLSearchParams(filter.value);
                     try {
-                        const [allRes, dedupRes, statsRes, detailsRes, rewardRes, drugRes] = await Promise.all([
+                        const [allRes, dedupRes, statsRes, detailsRes, rewardRes, drugRes, drugChartRes] = await Promise.all([
                             apiGet(`/api/data/analysis/data?${params}`),
                             apiGet(`/api/data/analysis/deduplicated?${params}`),
                             apiGet(`/api/data/analysis/statistics?${params}`),
                             apiGet(`/api/data/analysis/report-details?${params}`),
                             apiGet(`/api/data/analysis/reward-calculation?${params}`),
-                            apiGet(`/api/data/analysis/drug-summary?${params}`)
+                            apiGet(`/api/data/analysis/drug-summary?${params}`),
+                            apiGet(`/api/data/analysis/drug-summary-charts?${params}`)
                         ]);
                         
                         if (allRes && allRes.ok) allData.value = await allRes.json();
@@ -775,14 +785,19 @@
                         if (statsRes && statsRes.ok) statisticsData.value = await statsRes.json();
                         if (detailsRes && detailsRes.ok) reportDetailsData.value = await detailsRes.json();
                         if (rewardRes && rewardRes.ok) rewardData.value = await rewardRes.json();
-                            if (drugRes && drugRes.ok) {
-                                const drugData = await drugRes.json();
-                                // 后端直接返回数组，需要包装成对象
-                                drugSummaryData.value = {
-                                    drug_summary: Array.isArray(drugData) ? drugData : (drugData.drug_summary || []),
-                                    reaction_summary: Array.isArray(drugData) ? [] : (drugData.reaction_summary || [])
-                                };
-                            }
+                        if (drugRes && drugRes.ok) {
+                            const drugData = await drugRes.json();
+                            // 后端直接返回数组，需要包装成对象
+                            drugSummaryData.value = {
+                                drug_summary: Array.isArray(drugData) ? drugData : (drugData.drug_summary || []),
+                                reaction_summary: Array.isArray(drugData) ? [] : (drugData.reaction_summary || [])
+                            };
+                        }
+                        if (drugChartRes && drugChartRes.ok) {
+                            drugSummaryChartData.value = await drugChartRes.json();
+                        } else {
+                            drugSummaryChartData.value = { bar_chart: [], pie_chart: [] };
+                        }
                         
                         if (viewMode.value === 'chart') {
                             nextTick(() => renderCharts());
@@ -916,9 +931,25 @@
                 const switchDrugChart = (type) => {
                     drugChartType.value = type;
                     nextTick(() => {
-                        if (type === 'bar') renderDrugBarChart();
-                        else renderDrugPieChart();
+                        renderDrugSummaryChart();
                     });
+                };
+
+                const getDrugChartId = () => {
+                    const chartMap = {
+                        bar: 'drugBarChart',
+                        pie: 'drugPieChart',
+                        'reaction-bar': 'reactionBarChart',
+                        'reaction-pie': 'reactionPieChart'
+                    };
+                    return chartMap[drugChartType.value] || 'drugBarChart';
+                };
+
+                const renderDrugSummaryChart = () => {
+                    if (drugChartType.value === 'bar') renderDrugBarChart();
+                    else if (drugChartType.value === 'pie') renderDrugPieChart();
+                    else if (drugChartType.value === 'reaction-bar') renderReactionBarChart();
+                    else renderReactionPieChart();
                 };
 
                 const renderCharts = () => {
@@ -926,8 +957,7 @@
                         renderSeverityChart();
                         renderMonthChart();
                     } else if (tab.value === 'drug-summary') {
-                        renderDrugBarChart();
-                        renderDrugPieChart();
+                        renderDrugSummaryChart();
                     }
                 };
                 
@@ -1298,7 +1328,10 @@
                     if (charts.drugBar) charts.drugBar.dispose();
                     charts.drugBar = echarts.init(dom);
                     
-                    const drugs = (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal).slice(0, 10).reverse();
+                    const chartRows = (drugSummaryChartData.value.bar_chart && drugSummaryChartData.value.bar_chart.length > 0)
+                        ? drugSummaryChartData.value.bar_chart
+                        : (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal);
+                    const drugs = chartRows.slice(0, 10).reverse();
                     
                     charts.drugBar.setOption({
                         title: { text: '前十名药品不良反应统计', left: 'center', textStyle: { fontSize: 16 } },
@@ -1325,7 +1358,9 @@
                     if (charts.drugPie) charts.drugPie.dispose();
                     charts.drugPie = echarts.init(dom);
                     
-                    const drugs = (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal).slice(0, 10);
+                    const pieData = (drugSummaryChartData.value.pie_chart && drugSummaryChartData.value.pie_chart.length > 0)
+                        ? drugSummaryChartData.value.pie_chart
+                        : (drugSummaryData.value.drug_summary || []).filter(d => !d.isTotal).slice(0, 10).map(d => ({ name: d.drug_name, value: d.total }));
                     
                     charts.drugPie.setOption({
                         title: { text: '药品不良反应分布TOP10', left: 'center', textStyle: { fontSize: 16 } },
@@ -1350,7 +1385,72 @@
                                 lineHeight: 14
                             },
                             labelLine: { show: true, length: 15, length2: 20 },
-                            data: drugs.map(d => ({ name: d.drug_name, value: d.total }))
+                            data: pieData
+                        }]
+                    });
+                };
+
+                const renderReactionBarChart = () => {
+                    const dom = document.getElementById('reactionBarChart');
+                    if (!dom) return;
+                    if (charts.reactionBar) charts.reactionBar.dispose();
+                    charts.reactionBar = echarts.init(dom);
+
+                    const reactions = (drugSummaryData.value.reaction_summary || []).slice(0, 10).reverse();
+
+                    charts.reactionBar.setOption({
+                        title: { text: '不良反应汇总TOP10', left: 'center', textStyle: { fontSize: 16 } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: ['一般', '严重'], top: 35 },
+                        grid: { left: 160, right: 80, top: 80, bottom: 30 },
+                        yAxis: {
+                            type: 'category',
+                            data: reactions.map(d => d.reaction_name),
+                            axisLabel: { fontSize: 12 }
+                        },
+                        xAxis: { type: 'value', name: '数量' },
+                        series: [
+                            { name: '一般', type: 'bar', data: reactions.map(d => d['一般'] || 0), itemStyle: { color: '#52c41a' }, label: { show: true, position: 'right', fontSize: 11 } },
+                            { name: '严重', type: 'bar', data: reactions.map(d => d['严重'] || 0), itemStyle: { color: '#ff4d4f' }, label: { show: true, position: 'right', fontSize: 11 } }
+                        ]
+                    });
+                };
+
+                const renderReactionPieChart = () => {
+                    const dom = document.getElementById('reactionPieChart');
+                    if (!dom) return;
+                    if (charts.reactionPie) charts.reactionPie.dispose();
+                    charts.reactionPie = echarts.init(dom);
+
+                    const reactions = drugSummaryData.value.reaction_summary || [];
+                    const pieData = reactions.slice(0, 10).map(d => ({ name: d.reaction_name, value: d.total }));
+                    const otherTotal = reactions.slice(10).reduce((sum, item) => sum + (item.total || 0), 0);
+                    if (otherTotal > 0) pieData.push({ name: '其他', value: otherTotal });
+
+                    charts.reactionPie.setOption({
+                        title: { text: '不良反应分布', left: 'center', textStyle: { fontSize: 16 } },
+                        tooltip: { trigger: 'item', formatter: '{b}: {c}例 ({d}%)' },
+                        legend: {
+                            type: 'scroll',
+                            orient: 'vertical',
+                            right: 20,
+                            top: 60,
+                            bottom: 20,
+                            textStyle: { fontSize: 11 }
+                        },
+                        series: [{
+                            type: 'pie',
+                            radius: ['30%', '60%'],
+                            center: ['40%', '55%'],
+                            itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                            label: {
+                                show: true,
+                                formatter: '{b}\n{d}%',
+                                fontSize: 11,
+                                lineHeight: 14
+                            },
+                            labelLine: { show: true, length: 15, length2: 20 },
+                            data: pieData
                         }]
                     });
                 };
@@ -1372,10 +1472,10 @@
 
                 return {
                     tab, viewMode, filter, loading, drugChartType, exportProgress,
-                    allData, deduplicatedData, statisticsData, reportDetailsData, reportDetailsWithSummary, rewardData, drugSummaryData,
+                    allData, deduplicatedData, statisticsData, reportDetailsData, reportDetailsWithSummary, rewardData, drugSummaryData, drugSummaryChartData,
                     hasData, getSeverityCount, getNewCount, formatDate,
                     analyze, resetFilters, exportAll, exportTab,
-                    switchTab, switchToChart, switchToReportChart, switchToRewardChart, switchDrugChart, downloadChart
+                    switchTab, switchToChart, switchToReportChart, switchToRewardChart, switchDrugChart, getDrugChartId, downloadChart
                 };
             }
         }).mount('#app');
