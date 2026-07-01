@@ -622,7 +622,8 @@ def export_report_word():
         # 添加生成时间
         time_para = doc.add_paragraph()
         time_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        time_run = time_para.add_run(f"生成时间：{datetime.now().strftime('%Y年%m月%d日 %H:%M')}")
+        _now = datetime.now()
+        time_run = time_para.add_run(f"生成时间：{_now.year}年{_now.month:02d}月{_now.day:02d}日 {_now.hour:02d}:{_now.minute:02d}")
         time_run.font.size = Pt(10)
         time_run.font.color.rgb = RGBColor(128, 128, 128)
         

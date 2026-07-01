@@ -457,6 +457,7 @@
                     </div>
                     <div style="margin-bottom: 12px; text-align: right;">
                         <button class="btn btn-success" @click="exportTab('reward-calculation')"><i class="bi bi-download"></i> 导出Excel</button>
+                        <button class="btn btn-success" @click="copyRewardTable"><i class="bi bi-clipboard"></i> 复制</button>
                     </div>
                     
                     <!-- 表格视图 -->
@@ -467,6 +468,7 @@
                                         <th rowspan="2">科室</th>
                                         <th rowspan="2">职业</th>
                                         <th rowspan="2">姓名</th>
+                                        <th rowspan="2">总数量</th>
                                         <th colspan="2" style="text-align: center;">一般</th>
                                         <th colspan="2" style="text-align: center;">严重</th>
                                         <th colspan="2" style="text-align: center;">新的一般</th>
@@ -490,6 +492,7 @@
                                     <td>{{ item.department }}</td>
                                     <td>{{ item.profession }}</td>
                                     <td>{{ item.reporter_name }}</td>
+                                    <td>{{ (item['一般'] || 0) + (item['严重'] || 0) + (item['新的_一般'] || 0) + (item['新的_严重'] || 0) }}</td>
                                     <td>{{ item['一般'] || 0 }}</td>
                                     <td style="color: #52c41a;">{{ item['奖励_一般'] || 0 }}</td>
                                     <td style="color: #ff4d4f;">{{ item['严重'] || 0 }}</td>
@@ -903,6 +906,51 @@
                             document.body.appendChild(iframe);
                         }
                         iframe.src = url;
+                    }
+                };
+
+                const copyRewardTable = () => {
+                    const details = rewardData.value.reward_details || [];
+                    if (!details.length) {
+                        alert('暂无数据可复制');
+                        return;
+                    }
+                    const header = ['科室', '职业', '姓名', '总数量', '一般', '严重', '新的一般', '新的严重', '个人奖励合计'].join('\t');
+                    const lines = details.map(item => {
+                        const total = (item['一般'] || 0) + (item['严重'] || 0) + (item['新的_一般'] || 0) + (item['新的_严重'] || 0);
+                        return [
+                            item.department || '',
+                            item.profession || '',
+                            item.reporter_name || '',
+                            total,
+                            item['一般'] || 0,
+                            item['严重'] || 0,
+                            item['新的_一般'] || 0,
+                            item['新的_严重'] || 0,
+                            item['个人奖励合计'] || 0
+                        ].join('\t');
+                    });
+                    const text = [header, ...lines].join('\n');
+                    const onSuccess = () => alert('已复制到剪贴板');
+                    const fallbackCopy = () => {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        textarea.style.position = 'fixed';
+                        textarea.style.left = '-9999px';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        try {
+                            document.execCommand('copy');
+                            onSuccess();
+                        } catch (e) {
+                            alert('复制失败: ' + e.message);
+                        }
+                        document.body.removeChild(textarea);
+                    };
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
+                    } else {
+                        fallbackCopy();
                     }
                 };
 
@@ -1474,7 +1522,7 @@
                     tab, viewMode, filter, loading, drugChartType, exportProgress,
                     allData, deduplicatedData, statisticsData, reportDetailsData, reportDetailsWithSummary, rewardData, drugSummaryData, drugSummaryChartData,
                     hasData, getSeverityCount, getNewCount, formatDate,
-                    analyze, resetFilters, exportAll, exportTab,
+                    analyze, resetFilters, exportAll, exportTab, copyRewardTable,
                     switchTab, switchToChart, switchToReportChart, switchToRewardChart, switchDrugChart, getDrugChartId, downloadChart
                 };
             }

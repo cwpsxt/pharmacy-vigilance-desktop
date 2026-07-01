@@ -291,13 +291,13 @@ def apply_report_details_template(worksheet):
 	style_template_header(worksheet)
 
 def apply_reward_template(worksheet):
-	for column, title in [('A', '科室'), ('B', '职业'), ('C', '姓名'), ('L', '个人奖励合计/元')]:
+	for column, title in [('A', '科室'), ('B', '职业'), ('C', '姓名'), ('D', '总数量'), ('M', '个人奖励合计/元')]:
 		worksheet.merge_cells(f'{column}1:{column}2')
 		worksheet[f'{column}1'] = title
-	for start, end, title in [('D', 'E', '一般'), ('F', 'G', '严重'), ('H', 'I', '新的一般'), ('J', 'K', '新的严重')]:
+	for start, end, title in [('E', 'F', '一般'), ('G', 'H', '严重'), ('I', 'J', '新的一般'), ('K', 'L', '新的严重')]:
 		worksheet.merge_cells(f'{start}1:{end}1')
 		worksheet[f'{start}1'] = title
-	for cell, title in [('D2', '数量'), ('E2', '奖励/元'), ('F2', '数量'), ('G2', '奖励/元'), ('H2', '数量'), ('I2', '奖励/元'), ('J2', '数量'), ('K2', '奖励/元')]:
+	for cell, title in [('E2', '数量'), ('F2', '奖励/元'), ('G2', '数量'), ('H2', '奖励/元'), ('I2', '数量'), ('J2', '奖励/元'), ('K2', '数量'), ('L2', '奖励/元')]:
 		worksheet[cell] = title
 	style_template_header(worksheet)
 
@@ -2052,6 +2052,9 @@ def get_reward_calculation():
 		total_reward = 0
 
 		for stats in reporter_stats.values():
+			# 只统计药师和护士张佳丽，其余人员完全剔除（不计入明细、小计、合计）
+			if not (stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽'):
+				continue
 			# 特殊处理：张佳丽固定按药师的奖励规则计算
 			if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 				# 药师按照阶梯式计算
@@ -2069,11 +2072,12 @@ def get_reward_calculation():
 				reward_严重 = stats['严重'] * 300 if stats['严重'] > 0 else 0
 				reward_新的一般 = stats['新的_一般'] * 300 if stats['新的_一般'] > 0 else 0
 				reward_新的严重 = stats['新的_严重'] * 300 if stats['新的_严重'] > 0 else 0
-			
+
 			reward_detail = {
 				'department': stats['department'],
 				'profession': stats['profession'],
 				'reporter_name': stats['reporter_name'],
+				'总数量': stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重'],
 				'一般': stats['一般'],
 				'奖励_一般': int(reward_一般),
 				'严重': stats['严重'],
@@ -2097,6 +2101,7 @@ def get_reward_calculation():
 			dept = detail['department']
 			if dept not in department_subtotals:
 				department_subtotals[dept] = {
+					'总数量': 0,
 					'一般': 0,
 					'奖励_一般': 0,
 					'严重': 0,
@@ -2107,7 +2112,8 @@ def get_reward_calculation():
 					'奖励_新的严重': 0,
 					'个人奖励合计': 0
 				}
-			
+
+			department_subtotals[dept]['总数量'] += detail['总数量']
 			department_subtotals[dept]['一般'] += detail['一般']
 			department_subtotals[dept]['奖励_一般'] += detail['奖励_一般']
 			department_subtotals[dept]['严重'] += detail['严重']
@@ -2120,6 +2126,7 @@ def get_reward_calculation():
 		
 		# 计算总计
 		total_stats = {
+			'总数量': sum(detail['总数量'] for detail in reward_details),
 			'一般': sum(detail['一般'] for detail in reward_details),
 			'奖励_一般': sum(detail['奖励_一般'] for detail in reward_details),
 			'严重': sum(detail['严重'] for detail in reward_details),
@@ -2253,6 +2260,7 @@ def export_reward_calculation():
 		excel_data = []
 		department_subtotals = {}
 		total_stats = {
+			'总数量': 0,
 			'一般': 0,
 			'奖励_一般': 0,
 			'严重': 0,
@@ -2265,6 +2273,9 @@ def export_reward_calculation():
 		}
 
 		for stats in reporter_stats.values():
+			# 只统计药师和护士张佳丽，其余人员完全剔除（不计入明细、小计、合计）
+			if not (stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽'):
+				continue
 			# 特殊处理：张佳丽固定按药师的奖励规则计算
 			if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 				# 药师按照阶梯式计算
@@ -2282,11 +2293,12 @@ def export_reward_calculation():
 				reward_严重 = stats['严重'] * 300 if stats['严重'] > 0 else 0
 				reward_新的一般 = stats['新的_一般'] * 300 if stats['新的_一般'] > 0 else 0
 				reward_新的严重 = stats['新的_严重'] * 300 if stats['新的_严重'] > 0 else 0
-			
+
 			excel_data.append({
 				'科室': stats['department'],
 				'职业': stats['profession'],
 				'姓名': stats['reporter_name'],
+				'总数量': stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重'],
 				'一般': stats['一般'],
 				'奖励/元': int(reward_一般),
 				'严重': stats['严重'],
@@ -2302,6 +2314,7 @@ def export_reward_calculation():
 			dept = stats['department']
 			if dept not in department_subtotals:
 				department_subtotals[dept] = {
+					'总数量': 0,
 					'一般': 0,
 					'奖励_一般': 0,
 					'严重': 0,
@@ -2312,7 +2325,8 @@ def export_reward_calculation():
 					'奖励_新的严重': 0,
 					'个人奖励合计': 0
 				}
-			
+
+			department_subtotals[dept]['总数量'] += stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重']
 			department_subtotals[dept]['一般'] += stats['一般']
 			department_subtotals[dept]['奖励_一般'] += int(reward_一般)
 			department_subtotals[dept]['严重'] += stats['严重']
@@ -2324,6 +2338,7 @@ def export_reward_calculation():
 			department_subtotals[dept]['个人奖励合计'] += int(individual_total)
 			
 			# 累计总数
+			total_stats['总数量'] += stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重']
 			total_stats['一般'] += stats['一般']
 			total_stats['奖励_一般'] += int(reward_一般)
 			total_stats['严重'] += stats['严重']
@@ -2350,6 +2365,7 @@ def export_reward_calculation():
 						'科室': '小计',
 						'职业': '',
 						'姓名': '',
+						'总数量': subtotal['一般'] + subtotal['严重'] + subtotal['新的_一般'] + subtotal['新的_严重'],
 						'一般': subtotal['一般'],
 						'奖励/元': subtotal['奖励_一般'],
 						'严重': subtotal['严重'],
@@ -2371,6 +2387,7 @@ def export_reward_calculation():
 				'科室': '小计',
 				'职业': '',
 				'姓名': '',
+				'总数量': subtotal['一般'] + subtotal['严重'] + subtotal['新的_一般'] + subtotal['新的_严重'],
 				'一般': subtotal['一般'],
 				'奖励/元': subtotal['奖励_一般'],
 				'严重': subtotal['严重'],
@@ -2381,12 +2398,13 @@ def export_reward_calculation():
 				'奖励/元.3': subtotal['奖励_新的严重'],
 				'个人奖励合计/元': subtotal['个人奖励合计']
 			})
-		
+
 		# 添加合计行
 		final_data.append({
 			'科室': '合计',
 			'职业': '',
 			'姓名': '',
+			'总数量': '',
 			'一般': '',
 			'奖励/元': '',
 			'严重': '',
@@ -2413,15 +2431,16 @@ def export_reward_calculation():
 			worksheet.column_dimensions['A'].width = 12  # 科室
 			worksheet.column_dimensions['B'].width = 10  # 职业
 			worksheet.column_dimensions['C'].width = 12  # 姓名
-			worksheet.column_dimensions['D'].width = 8   # 一般
-			worksheet.column_dimensions['E'].width = 10  # 奖励/元
-			worksheet.column_dimensions['F'].width = 8   # 严重
-			worksheet.column_dimensions['G'].width = 10  # 奖励/元.1
-			worksheet.column_dimensions['H'].width = 10  # 新的一般
-			worksheet.column_dimensions['I'].width = 10  # 奖励/元.2
-			worksheet.column_dimensions['J'].width = 10  # 新的严重
-			worksheet.column_dimensions['K'].width = 10  # 奖励/元.3
-			worksheet.column_dimensions['L'].width = 15  # 个人奖励合计/元
+			worksheet.column_dimensions['D'].width = 10  # 总数量
+			worksheet.column_dimensions['E'].width = 8   # 一般
+			worksheet.column_dimensions['F'].width = 10  # 奖励/元
+			worksheet.column_dimensions['G'].width = 8   # 严重
+			worksheet.column_dimensions['H'].width = 10  # 奖励/元.1
+			worksheet.column_dimensions['I'].width = 10  # 新的一般
+			worksheet.column_dimensions['J'].width = 10  # 奖励/元.2
+			worksheet.column_dimensions['K'].width = 10  # 新的严重
+			worksheet.column_dimensions['L'].width = 10  # 奖励/元.3
+			worksheet.column_dimensions['M'].width = 15  # 个人奖励合计/元
 			
 			# 创建图表 - 使用matplotlib
 			try:
@@ -2460,7 +2479,7 @@ def export_reward_calculation():
 					img1 = Image(chart1_image)
 					img1.width = 500
 					img1.height = 300
-					worksheet.add_image(img1, 'N2')
+					worksheet.add_image(img1, 'O2')
 				
 				# 2. 奖励类型占比饼图
 				type_rewards = [
@@ -2486,7 +2505,7 @@ def export_reward_calculation():
 					img2 = Image(chart2_image)
 					img2.width = 450
 					img2.height = 350
-					worksheet.add_image(img2, 'N20')
+					worksheet.add_image(img2, 'O20')
 					
 			except Exception as chart_error:
 				print(f"生成奖励计算图表时出错: {chart_error}")
@@ -3320,6 +3339,7 @@ def export_all_tabs():
 				reward_excel_data = []
 				reward_department_subtotals = {}
 				reward_total_stats = {
+					'总数量': 0,
 					'一般': 0,
 					'奖励_一般': 0,
 					'严重': 0,
@@ -3332,6 +3352,9 @@ def export_all_tabs():
 				}
 
 				for stats in reporter_stats.values():
+					# 只统计药师和护士张佳丽，其余人员完全剔除（不计入明细、小计、合计）
+					if not (stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽'):
+						continue
 					# 特殊处理：张佳丽固定按药师的奖励规则计算
 					if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 						# 药师按照阶梯式计算
@@ -3349,11 +3372,12 @@ def export_all_tabs():
 						reward_严重 = stats['严重'] * 300 if stats['严重'] > 0 else 0
 						reward_新的一般 = stats['新的_一般'] * 300 if stats['新的_一般'] > 0 else 0
 						reward_新的严重 = stats['新的_严重'] * 300 if stats['新的_严重'] > 0 else 0
-					
+
 					reward_excel_data.append({
 						'科室': stats['department'],
 						'职业': stats['profession'],
 						'姓名': stats['reporter_name'],
+						'总数量': stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重'],
 						'一般': stats['一般'],
 						'奖励/元': int(reward_一般),
 						'严重': stats['严重'],
@@ -3369,6 +3393,7 @@ def export_all_tabs():
 					dept = stats['department']
 					if dept not in reward_department_subtotals:
 						reward_department_subtotals[dept] = {
+							'总数量': 0,
 							'一般': 0,
 							'奖励_一般': 0,
 							'严重': 0,
@@ -3379,7 +3404,8 @@ def export_all_tabs():
 							'奖励_新的严重': 0,
 							'个人奖励合计': 0
 						}
-					
+
+					reward_department_subtotals[dept]['总数量'] += stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重']
 					reward_department_subtotals[dept]['一般'] += stats['一般']
 					reward_department_subtotals[dept]['奖励_一般'] += int(reward_一般)
 					reward_department_subtotals[dept]['严重'] += stats['严重']
@@ -3391,6 +3417,7 @@ def export_all_tabs():
 					reward_department_subtotals[dept]['个人奖励合计'] += int(individual_total)
 					
 					# 累计总数
+					reward_total_stats['总数量'] += stats['一般'] + stats['严重'] + stats['新的_一般'] + stats['新的_严重']
 					reward_total_stats['一般'] += stats['一般']
 					reward_total_stats['奖励_一般'] += int(reward_一般)
 					reward_total_stats['严重'] += stats['严重']
@@ -3417,6 +3444,7 @@ def export_all_tabs():
 								'科室': '小计',
 								'职业': '',
 								'姓名': '',
+								'总数量': subtotal['一般'] + subtotal['严重'] + subtotal['新的_一般'] + subtotal['新的_严重'],
 								'一般': subtotal['一般'],
 								'奖励/元': subtotal['奖励_一般'],
 								'严重': subtotal['严重'],
@@ -3438,6 +3466,7 @@ def export_all_tabs():
 						'科室': '小计',
 						'职业': '',
 						'姓名': '',
+						'总数量': subtotal['一般'] + subtotal['严重'] + subtotal['新的_一般'] + subtotal['新的_严重'],
 						'一般': subtotal['一般'],
 						'奖励/元': subtotal['奖励_一般'],
 						'严重': subtotal['严重'],
@@ -3454,6 +3483,7 @@ def export_all_tabs():
 					'科室': '合计',
 					'职业': '',
 					'姓名': '',
+					'总数量': '',
 					'一般': '',
 					'奖励/元': '',
 					'严重': '',
@@ -3507,7 +3537,7 @@ def export_all_tabs():
 						img1 = Image(chart1_image)
 						img1.width = 500
 						img1.height = 300
-						worksheet_reward.add_image(img1, 'N2')
+						worksheet_reward.add_image(img1, 'O2')
 					
 					# 2. 奖励类型占比饼图
 					type_rewards = [
@@ -3533,7 +3563,7 @@ def export_all_tabs():
 						img2 = Image(chart2_image)
 						img2.width = 450
 						img2.height = 350
-						worksheet_reward.add_image(img2, 'N20')
+						worksheet_reward.add_image(img2, 'O20')
 						
 				except Exception as chart_err:
 					print(f"生成奖励计算图表时出错: {chart_err}")

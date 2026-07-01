@@ -115,8 +115,9 @@ class DataWorkflowTest(unittest.TestCase):
         self.assertEqual(reward_response.status_code, 200)
         reward_wb = load_workbook(BytesIO(reward_response.data), read_only=False)
         reward_ws = reward_wb["奖励计算"]
-        self.assertEqual([reward_ws.cell(1, c).value for c in range(1, 13)], ["科室", "职业", "姓名", "一般", None, "严重", None, "新的一般", None, "新的严重", None, "个人奖励合计/元"])
-        self.assertEqual(sorted(str(r) for r in reward_ws.merged_cells.ranges), ["A1:A2", "B1:B2", "C1:C2", "D1:E1", "F1:G1", "H1:I1", "J1:K1", "L1:L2"])
+        self.assertEqual([reward_ws.cell(1, c).value for c in range(1, 14)], ["科室", "职业", "姓名", "总数量", "一般", None, "严重", None, "新的一般", None, "新的严重", None, "个人奖励合计/元"])
+        self.assertEqual([reward_ws.cell(2, c).value for c in range(5, 13)], ["数量", "奖励/元", "数量", "奖励/元", "数量", "奖励/元", "数量", "奖励/元"])
+        self.assertEqual(sorted(str(r) for r in reward_ws.merged_cells.ranges), ["A1:A2", "B1:B2", "C1:C2", "D1:D2", "E1:F1", "G1:H1", "I1:J1", "K1:L1", "M1:M2"])
 
     def test_desktop_pages_expose_delete_actions_and_correct_import_count(self):
         reports_html = (ROOT.parent / "electron/pages/views/reports.html").read_text(encoding="utf-8")

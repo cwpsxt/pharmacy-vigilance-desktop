@@ -520,6 +520,9 @@
                 <button class="ai-quick-btn export" @click="exportReportWord" :disabled="!lastReportContent" title="导出">
                     <i class="bi bi-file-word"></i> 导出
                 </button>
+                <button class="ai-quick-btn export" @click="copyReportText" :disabled="!lastReportContent" title="复制全文">
+                    <i class="bi bi-clipboard"></i> 复制
+                </button>
             </div>
             <div class="ai-chat-messages" ref="aiMessagesContainer">
                 <div v-if="aiMessages.length === 0" class="ai-welcome">
@@ -973,7 +976,52 @@
                         alert('导出失败，请稍后重试');
                     }
                 };
-                
+
+                const copyReportText = async () => {
+                    if (!lastReportContent.value) {
+                        alert('请先生成报告后再复制');
+                        return;
+                    }
+
+                    const text = lastReportContent.value;
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                        } else {
+                            const textarea = document.createElement('textarea');
+                            textarea.value = text;
+                            textarea.style.position = 'fixed';
+                            textarea.style.left = '-9999px';
+                            textarea.style.top = '0';
+                            document.body.appendChild(textarea);
+                            textarea.focus();
+                            textarea.select();
+                            const ok = document.execCommand('copy');
+                            document.body.removeChild(textarea);
+                            if (!ok) throw new Error('execCommand copy failed');
+                        }
+                        alert('报告已复制到剪贴板');
+                    } catch (e) {
+                        // 剪贴板 API 不可用时回退到 textarea + execCommand
+                        try {
+                            const textarea = document.createElement('textarea');
+                            textarea.value = text;
+                            textarea.style.position = 'fixed';
+                            textarea.style.left = '-9999px';
+                            textarea.style.top = '0';
+                            document.body.appendChild(textarea);
+                            textarea.focus();
+                            textarea.select();
+                            const ok = document.execCommand('copy');
+                            document.body.removeChild(textarea);
+                            if (!ok) throw new Error('execCommand copy failed');
+                            alert('报告已复制到剪贴板');
+                        } catch (err) {
+                            alert('复制失败，请手动选择文本复制');
+                        }
+                    }
+                };
+
                 const sendAiMessage = async () => {
                     const message = aiInput.value.trim();
                     if (!message || aiLoading.value) return;
@@ -1132,7 +1180,7 @@
                     aiChatOpen, aiInput, aiMessages, aiLoading, lastReportContent,
                     isMaximized, aiWindowStyle, aiStartMonth, aiEndMonth, aiDataset,
                     toggleAiChat, formatMessage, sendAiMessage, aiQuickAction, exportReportWord,
-                    toggleMaximize, exportChart, exportToWord
+                    copyReportText, toggleMaximize, exportChart, exportToWord
                 };
             }
         }).mount('#app');
