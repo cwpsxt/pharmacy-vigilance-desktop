@@ -119,6 +119,39 @@ class DataWorkflowTest(unittest.TestCase):
         self.assertEqual([reward_ws.cell(2, c).value for c in range(5, 13)], ["数量", "奖励/元", "数量", "奖励/元", "数量", "奖励/元", "数量", "奖励/元"])
         self.assertEqual(sorted(str(r) for r in reward_ws.merged_cells.ranges), ["A1:A2", "B1:B2", "C1:C2", "D1:D2", "E1:F1", "G1:H1", "I1:J1", "K1:L1", "M1:M2"])
 
+    def test_reward_uses_total_based_tiering_and_excludes_non_pharmacists(self):
+        headers = ["报告表编码", "报告类型-新的", "报告类型-严重程度", "病历号/门诊号", "怀疑/并用", "通用名称", "生产厂家", "不良反应名称", "报告人职业", "报告人签名", "国家中心接收时间"]
+        rows = [headers]
+        n = 0
+
+        def rec(newf, sev, prof, name, day):
+            nonlocal n
+            n += 1
+            return [f"C{n:03d}", newf, sev, f"M{n:03d}", "怀疑", "药", "厂", "皮疹", prof, name, f"2026-06-{day:02d} 08:00:00"]
+
+        # 王药师：一般×5（接收时间在前）+ 新的严重×1（接收时间最后），共 6 例；按总数量阶梯，第 6 例享 80%
+        for d in range(1, 6):
+            rows.append(rec("", "一般", "药师", "王药师", d))
+        rows.append(rec("新的", "严重", "药师", "王药师", 6))
+        # 王护士（护士，非张佳丽）：必须从明细与合计中完全剔除
+        for d in range(1, 4):
+            rows.append(rec("", "一般", "护士", "王护士", d))
+        self.assertEqual(self._upload(rows).status_code, 200)
+
+        data = self.client.get("/api/data/analysis/reward-calculation", headers=self.headers).get_json()
+        by_name = {d["reporter_name"]: d for d in data["reward_details"]}
+        # 剔除：仅保留药师 / 张佳丽
+        self.assertNotIn("王护士", by_name)
+        self.assertEqual(set(by_name), {"王药师"})
+        w = by_name["王药师"]
+        # 总数量阶梯 + 按接收时间排序：前 5 例(一般)×100%=250，第 6 例(新的严重)×80%=120
+        self.assertEqual(w["总数量"], 6)
+        self.assertEqual(w["奖励_一般"], 250)
+        self.assertEqual(w["奖励_新的严重"], 120)
+        self.assertEqual(w["个人奖励合计"], 370)
+        # 合计不含被剔除人员
+        self.assertEqual(data["total_stats"]["个人奖励合计"], 370)
+
     def test_desktop_pages_expose_delete_actions_and_correct_import_count(self):
         reports_html = (ROOT.parent / "electron/pages/views/reports.html").read_text(encoding="utf-8")
         import_html = (ROOT.parent / "electron/pages/views/import.html").read_text(encoding="utf-8")

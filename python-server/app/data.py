@@ -301,6 +301,35 @@ def apply_reward_template(worksheet):
 		worksheet[cell] = title
 	style_template_header(worksheet)
 
+def compute_tiered_reward_by_total(reports):
+	"""按报告人当月上报【总数量】进行阶梯折算（维度二）。
+
+	reports: (receive_time, record_id, category) 列表，category ∈ 一般/严重/新的_一般/新的_严重。
+	按国家中心接收时间升序（同一时间按 record_id）排序后按位次折算：
+	第1~5份×100%，6~10×80%，11~15×60%，≥16×40%；每份=该类型基数×其位次比例。
+	基数：一般50/严重70/新的一般100/新的严重150。返回各类型奖励合计(float)。
+	"""
+	base_map = {'一般': 50, '严重': 70, '新的_一般': 100, '新的_严重': 150}
+
+	def tier_ratio(pos):
+		if pos <= 5:
+			return 1.0
+		elif pos <= 10:
+			return 0.8
+		elif pos <= 15:
+			return 0.6
+		return 0.4
+
+	rewards = {'一般': 0.0, '严重': 0.0, '新的_一般': 0.0, '新的_严重': 0.0}
+	# 按接收时间升序（缺失时间排最后），同一时间按 record_id，保证结果可复现
+	ordered = sorted(reports, key=lambda r: (r[0] is None, r[0] or datetime.min, r[1] if r[1] is not None else 0))
+	for pos, item in enumerate(ordered, start=1):
+		category = item[2]
+		if category in rewards:
+			rewards[category] += base_map[category] * tier_ratio(pos)
+	return rewards
+
+
 def parse_excel_data(df, batch_id):
 	"""解析Excel数据并转换为数据库记录"""
 	records = []
@@ -2005,14 +2034,18 @@ def get_reward_calculation():
 				# 新的+严重程度组合
 				if record.severity == '一般':
 					reporter_stats[key]['新的_一般'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_一般'))
 				elif record.severity == '严重':
 					reporter_stats[key]['新的_严重'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_严重'))
 			else:
 				# 非新的记录才统计到一般/严重
 				if record.severity == '一般':
 					reporter_stats[key]['一般'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '一般'))
 				elif record.severity == '严重':
 					reporter_stats[key]['严重'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '严重'))
 		
 		# 计算奖励
 		def calculate_tiered_reward(count, base_reward):
@@ -2058,10 +2091,11 @@ def get_reward_calculation():
 			# 特殊处理：张佳丽固定按药师的奖励规则计算
 			if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 				# 药师按照阶梯式计算
-				reward_一般 = calculate_tiered_reward(stats['一般'], 50)
-				reward_严重 = calculate_tiered_reward(stats['严重'], 70)
-				reward_新的一般 = calculate_tiered_reward(stats['新的_一般'], 100)
-				reward_新的严重 = calculate_tiered_reward(stats['新的_严重'], 150)
+				_rewards = compute_tiered_reward_by_total(stats.get('reports', []))
+				reward_一般 = _rewards['一般']
+				reward_严重 = _rewards['严重']
+				reward_新的一般 = _rewards['新的_一般']
+				reward_新的严重 = _rewards['新的_严重']
 
 				individual_total = reward_一般 + reward_严重 + reward_新的一般 + reward_新的严重
 			else:
@@ -2214,14 +2248,18 @@ def export_reward_calculation():
 				# 新的+严重程度组合
 				if record.severity == '一般':
 					reporter_stats[key]['新的_一般'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_一般'))
 				elif record.severity == '严重':
 					reporter_stats[key]['新的_严重'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_严重'))
 			else:
 				# 非新的记录才统计到一般/严重
 				if record.severity == '一般':
 					reporter_stats[key]['一般'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '一般'))
 				elif record.severity == '严重':
 					reporter_stats[key]['严重'] += 1
+					reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '严重'))
 		
 		# 计算奖励
 		def calculate_tiered_reward(count, base_reward):
@@ -2279,10 +2317,11 @@ def export_reward_calculation():
 			# 特殊处理：张佳丽固定按药师的奖励规则计算
 			if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 				# 药师按照阶梯式计算
-				reward_一般 = calculate_tiered_reward(stats['一般'], 50)
-				reward_严重 = calculate_tiered_reward(stats['严重'], 70)
-				reward_新的一般 = calculate_tiered_reward(stats['新的_一般'], 100)
-				reward_新的严重 = calculate_tiered_reward(stats['新的_严重'], 150)
+				_rewards = compute_tiered_reward_by_total(stats.get('reports', []))
+				reward_一般 = _rewards['一般']
+				reward_严重 = _rewards['严重']
+				reward_新的一般 = _rewards['新的_一般']
+				reward_新的严重 = _rewards['新的_严重']
 
 				individual_total = reward_一般 + reward_严重 + reward_新的一般 + reward_新的严重
 			else:
@@ -3121,13 +3160,17 @@ def export_all_tabs():
 					if is_new:
 						if record.severity == '一般':
 							reporter_stats[key]['新的_一般'] += 1
+							reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_一般'))
 						elif record.severity == '严重':
 							reporter_stats[key]['新的_严重'] += 1
+							reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '新的_严重'))
 					else:
 						if record.severity == '一般':
 							reporter_stats[key]['一般'] += 1
+							reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '一般'))
 						elif record.severity == '严重':
 							reporter_stats[key]['严重'] += 1
+							reporter_stats[key].setdefault('reports', []).append((record.national_center_receive_time, record.id, '严重'))
 				
 				# 创建上报明细Excel数据
 				excel_data = []
@@ -3358,10 +3401,11 @@ def export_all_tabs():
 					# 特殊处理：张佳丽固定按药师的奖励规则计算
 					if stats['profession'] == '药师' or stats['reporter_name'] == '张佳丽':
 						# 药师按照阶梯式计算
-						reward_一般 = calculate_tiered_reward(stats['一般'], 50)
-						reward_严重 = calculate_tiered_reward(stats['严重'], 70)
-						reward_新的一般 = calculate_tiered_reward(stats['新的_一般'], 100)
-						reward_新的严重 = calculate_tiered_reward(stats['新的_严重'], 150)
+						_rewards = compute_tiered_reward_by_total(stats.get('reports', []))
+						reward_一般 = _rewards['一般']
+						reward_严重 = _rewards['严重']
+						reward_新的一般 = _rewards['新的_一般']
+						reward_新的严重 = _rewards['新的_严重']
 
 						individual_total = reward_一般 + reward_严重 + reward_新的一般 + reward_新的严重
 					else:
